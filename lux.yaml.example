@@ -1,0 +1,15 @@
+# Lux v0.2 local configuration example.
+# Environment variables are still supported and keep secrets out of this file.
+model:
+  name: gpt-5.5
+  base_url: null
+
+verification:
+  max_repairs: 3
+  timeout_seconds: 900
+
+permissions:
+  install_dependencies: ask
+  git_commit: ask
+  git_push: ask
+  destructive_commands: block
