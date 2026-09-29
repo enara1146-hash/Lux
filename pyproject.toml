@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lux-agent"
+version = "0.3.4"
+description = "Local-first personal software factory powered by the OpenHands Software Agent SDK"
+requires-python = ">=3.12"
+dependencies = [
+  "openhands-sdk==1.49.6",
+  "openhands-tools==1.49.6",
+  "pydantic>=2.8",
+  "typer>=0.12",
+  "rich>=13.7",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+lux = "lux.cli.main:app"
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["lux*"]
