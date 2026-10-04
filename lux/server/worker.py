@@ -62,27 +62,36 @@ def _event_text(event: object) -> str:
 
 
 def run(job_id: str) -> None:
-    job = jobs.get(job_id)
-    if not job:
-        return
-    if job["status"] in {"cancelled", "waiting_for_approval"}:
-        return
-    workspace = (DATA_DIR / "projects" / job["project_name"] / job_id).resolve()
-    workspace.mkdir(parents=True, exist_ok=True)
-    jobs.update(job_id, status="running", workspace=str(workspace))
-    repository_url = job.get("repository_url")
-    if repository_url:
-        try:
-            subprocess.run(
-                ["git", "clone", "--depth", "1", repository_url, str(workspace)],
-                check=True,
-                timeout=180,
-            )
-        except Exception as exc:
-            logger.exception("Repository clone failed for job %s", job_id)
-            jobs.update(job_id, status="failed", error=f"Repository clone failed: {exc}"[:4000])
-            return
     try:
+        job = jobs.get(job_id)
+        if not job:
+            logger.error("Job %s disappeared before worker startup", job_id)
+            return
+        if job["status"] in {"cancelled", "waiting_for_approval"}:
+            return
+
+        workspace = (DATA_DIR / "projects" / job["project_name"] / job_id).resolve()
+        logger.info("Starting worker for job %s in %s", job_id, workspace)
+        jobs.update(job_id, status="running", workspace=str(workspace))
+        workspace.mkdir(parents=True, exist_ok=True)
+
+        repository_url = job.get("repository_url")
+        if repository_url:
+            try:
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", repository_url, str(workspace)],
+                    check=True,
+                    timeout=180,
+                )
+            except Exception as exc:
+                logger.exception("Repository clone failed for job %s", job_id)
+                jobs.update(
+                    job_id,
+                    status="failed",
+                    error=f"Repository clone failed: {exc}"[:4000],
+                )
+                return
+
         base_url = settings.effective(
             "LLM_BASE_URL",
             settings.effective("OPENAI_BASE_URL", "https://openrouter.ai/api/v1"),
@@ -135,11 +144,15 @@ def run(job_id: str) -> None:
         if latest and latest["status"] == "cancelled":
             return
         jobs.update(job_id, status="succeeded")
+        logger.info("Worker completed job %s", job_id)
     except Exception as exc:
-        logger.exception("Job %s failed", job_id)
+        logger.exception("Worker crashed for job %s", job_id)
         message = f"{type(exc).__name__}: {exc}"[:4000]
-        jobs.append_event(job_id, {"type": "error", "text": message})
-        jobs.update(job_id, status="failed", error=message)
+        try:
+            jobs.append_event(job_id, {"type": "error", "text": message})
+            jobs.update(job_id, status="failed", error=message)
+        except Exception:
+            logger.exception("Unable to persist failure for job %s", job_id)
 
 
 def _verify_workspace(workspace: Path) -> dict[str, object]:
