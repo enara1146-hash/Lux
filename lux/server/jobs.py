@@ -39,11 +39,11 @@ def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return result
 
 
-def create(prompt: str, project_name: str) -> dict[str, Any]:
+def create(prompt: str, project_name: str, owner_id: str | None = None) -> dict[str, Any]:
     import secrets
     now = time.time()
     job = {"id": secrets.token_urlsafe(16), "prompt": prompt,
-           "project_name": project_name, "status": "queued",
+           "project_name": project_name, "owner_id": owner_id, "status": "queued",
            "created_at": now, "updated_at": now}
     with _connect() as connection:
         connection.execute(
