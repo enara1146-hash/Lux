@@ -86,7 +86,14 @@ def create_job(request: JobRequest, user_id: str | None = Depends(current_user))
         job = jobs.update(job["id"], repository_url=request.repository_url) or job
     try:
         from .worker import run as run_job
-        threading.Thread(target=run_job, args=(job["id"],), daemon=True).start()
+        worker_thread = threading.Thread(
+            target=run_job,
+            args=(job["id"],),
+            daemon=True,
+            name=f"lux-worker-{job["id"]}",
+        )
+        worker_thread.start()
+        logger.info("Started worker thread %s for job %s", worker_thread.name, job["id"])
     except Exception as exc:
         logger.exception("Unable to start job %s", job["id"])
         jobs.update(job["id"], status="failed", error=f"{type(exc).__name__}: {exc}"[:4000])
