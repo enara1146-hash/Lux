@@ -44,7 +44,12 @@ def run(job_id: str) -> None:
             Tool(name=FileEditorTool.name),
             Tool(name=TaskTrackerTool.name),
         ])
-        conversation = Conversation(agent=agent, workspace=str(workspace))
+        def token_callback(token: object) -> None:
+            jobs.append_event(job_id, {"type": "token", "text": str(token)})
+
+        conversation = Conversation(
+            agent=agent, workspace=str(workspace), token_callbacks=[token_callback]
+        )
         conversation.send_message(job["prompt"])
         conversation.run()
         verification = _verify_workspace(workspace)
