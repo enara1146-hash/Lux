@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import secrets
+import threading
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from . import jobs
+from .worker import run as run_job
 
 app = FastAPI(title="Lux", version="0.3.5")
 API_KEY = os.getenv("LUX_API_KEY")
@@ -37,7 +39,9 @@ def health() -> dict[str, str]:
 
 @app.post("/api/jobs", dependencies=[Depends(require_key)])
 def create_job(request: JobRequest) -> dict:
-    return jobs.create(request.prompt, request.project_name)
+    job = jobs.create(request.prompt, request.project_name)
+    threading.Thread(target=run_job, args=(job["id"],), daemon=True).start()
+    return job
 
 
 @app.get("/api/jobs/{job_id}", dependencies=[Depends(require_key)])
