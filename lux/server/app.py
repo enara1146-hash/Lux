@@ -169,20 +169,21 @@ def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> Stre
 
     def events():
         last = None
+        event_index = 0
         while True:
             current = jobs.get(job_id)
             if not current:
-                yield "event: error\ndata: Job not found\n\n"
+                yield "event: error\\ndata: Job not found\\n\\n"
                 return
-            snapshot = {
-                "id": current["id"],
-                "status": current["status"],
-                "error": current.get("error"),
-            }
+            snapshot = {"id": current["id"], "status": current["status"], "error": current.get("error")}
             if snapshot != last:
                 import json
-                yield "event: job\ndata: " + json.dumps(snapshot) + "\n\n"
+                yield "event: job\\ndata: " + json.dumps(snapshot) + "\\n\\n"
                 last = snapshot
+            for event in current.get("events", [])[event_index:]:
+                import json
+                yield "event: token\\ndata: " + json.dumps(event) + "\\n\\n"
+            event_index = len(current.get("events", []))
             if current["status"] in {"succeeded", "failed", "cancelled"}:
                 return
             time.sleep(1)
