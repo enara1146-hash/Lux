@@ -101,3 +101,12 @@ def recent(limit: int = 50) -> list[dict[str, Any]]:
             "SELECT * FROM jobs ORDER BY updated_at DESC LIMIT ?", (max(1, min(limit, 200)),)
         ).fetchall()
     return [_row(row) for row in rows if _row(row)]
+
+
+def append_event(job_id: str, event: dict[str, Any]) -> None:
+    job = get(job_id)
+    if not job:
+        return
+    events = job.setdefault("events", [])
+    events.append(event)
+    update(job_id, events=events[-500:])
