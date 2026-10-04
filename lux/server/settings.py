@@ -44,4 +44,5 @@ def public_config() -> dict[str, str | bool | None]:
         "auth_enabled": effective("LUX_AUTH_ENABLED", "false") == "true",
         "api_key_configured": bool(effective("OPENAI_API_KEY") or effective("LLM_API_KEY")),
         "admin_key_configured": bool(ADMIN_KEY),
+        "max_repairs": int(effective("LUX_MAX_REPAIRS", "2")),
     }
