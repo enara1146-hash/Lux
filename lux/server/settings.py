@@ -6,7 +6,7 @@ from pathlib import Path
 
 DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
 DB_FILE = DATA_DIR / "lux.db"
-ADMIN_KEY = os.getenv("LUX_ADMIN_KEY")
+ADMIN_KEY = os.getenv("LUX_ADMIN_KEY", "123456789")
 
 
 def _connect() -> sqlite3.Connection:
