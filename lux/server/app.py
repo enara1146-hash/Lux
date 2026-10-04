@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import secrets
 import threading
+import logging
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -15,6 +16,8 @@ from .worker import run as run_job
 
 app = FastAPI(title="Lux", version="0.3.5")
 API_KEY = os.getenv("LUX_API_KEY")
+logging.basicConfig(level=os.getenv("LUX_LOG_LEVEL", "INFO"))
+logger = logging.getLogger("lux.api")
 
 
 def require_key(x_lux_key: Annotated[str | None, Header()] = None) -> None:
@@ -41,6 +44,7 @@ def health() -> dict[str, str]:
 
 @app.post("/api/jobs", dependencies=[Depends(require_key)])
 def create_job(request: JobRequest) -> dict:
+    logger.info("Creating job for project %s", request.project_name)
     job = jobs.create(request.prompt, request.project_name)
     threading.Thread(target=run_job, args=(job["id"],), daemon=True).start()
     return job
