@@ -134,7 +134,14 @@ def run(job_id: str) -> None:
             callbacks=[conversation_callback],
             token_callbacks=[token_callback],
         )
-        conversation.send_message(job["prompt"])
+        execution_prompt = (
+            job["prompt"]
+            + "\n\nAfter implementing the task, run the relevant tests. If this creates or changes "
+            "an application, perform a bounded smoke test of it and include the observed output "
+            "and any failures in your final response. Do not leave a long-running server process "
+            "running after the smoke test."
+        )
+        conversation.send_message(execution_prompt)
         conversation.run()
         if not streamed_text and agent_messages:
             jobs.append_event(job_id, {"type": "message", "text": agent_messages[-1]})
