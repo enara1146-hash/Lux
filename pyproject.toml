@@ -31,3 +31,6 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 include = ["lux*"]
+
+[tool.setuptools.package-data]
+lux = ["server/index.html"]
