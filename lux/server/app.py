@@ -16,6 +16,7 @@ from .worker import run as run_job
 
 app = FastAPI(title="Lux", version="0.3.5")
 API_KEY = os.getenv("LUX_API_KEY")
+AUTH_ENABLED = os.getenv("LUX_AUTH_ENABLED", "false").lower() == "true"
 logging.basicConfig(level=os.getenv("LUX_LOG_LEVEL", "INFO"))
 logger = logging.getLogger("lux.api")
 
@@ -23,9 +24,13 @@ logger = logging.getLogger("lux.api")
 def require_key(x_lux_key: Annotated[str | None, Header()] = None, authorization: Annotated[str | None, Header()] = None) -> None:
     bearer = authorization.removeprefix("Bearer ").strip() if authorization else None
     supplied = x_lux_key or bearer
-    if API_KEY and not supplied:
+    if not AUTH_ENABLED:
+        return
+    if not API_KEY:
+        raise HTTPException(status_code=503, detail="Lux authentication is enabled but LUX_API_KEY is not configured")
+    if not supplied:
         raise HTTPException(status_code=401, detail="API key is required")
-    if API_KEY and not secrets.compare_digest(supplied or "", API_KEY):
+    if not secrets.compare_digest(supplied or "", API_KEY):
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 
