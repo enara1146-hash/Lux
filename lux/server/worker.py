@@ -25,8 +25,11 @@ def run(job_id: str) -> None:
     workspace.mkdir(parents=True, exist_ok=True)
     jobs.update(job_id, status="running", workspace=str(workspace))
     try:
-        llm = LLM(model=os.environ["LLM_MODEL"], api_key=os.environ["LLM_API_KEY"],
-                  base_url=os.getenv("LLM_BASE_URL"))
+        llm = LLM(
+            model=os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
+            api_key=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL"),
+        )
         agent = Agent(llm=llm, tools=[
             Tool(name=TerminalTool.name),
             Tool(name=FileEditorTool.name),
