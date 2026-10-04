@@ -20,10 +20,12 @@ logging.basicConfig(level=os.getenv("LUX_LOG_LEVEL", "INFO"))
 logger = logging.getLogger("lux.api")
 
 
-def require_key(x_lux_key: Annotated[str | None, Header()] = None) -> None:
-    if API_KEY and not x_lux_key:
-        raise HTTPException(status_code=401, detail="X-Lux-Key is required")
-    if API_KEY and not secrets.compare_digest(x_lux_key or "", API_KEY):
+def require_key(x_lux_key: Annotated[str | None, Header()] = None, authorization: Annotated[str | None, Header()] = None) -> None:
+    bearer = authorization.removeprefix("Bearer ").strip() if authorization else None
+    supplied = x_lux_key or bearer
+    if API_KEY and not supplied:
+        raise HTTPException(status_code=401, detail="API key is required")
+    if API_KEY and not secrets.compare_digest(supplied or "", API_KEY):
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 
