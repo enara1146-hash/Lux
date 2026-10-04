@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-import json
 from pathlib import Path
 
 from openhands.sdk import LLM, Agent, Conversation, Tool
