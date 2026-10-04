@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 
 from openhands.sdk import LLM, Agent, Conversation, Tool
@@ -133,13 +134,27 @@ def run(job_id: str) -> None:
         )
         streamed_text = False
         agent_messages: list[str] = []
+        token_buffer: list[str] = []
+        last_token_flush = time.monotonic()
+
+        def flush_tokens() -> None:
+            nonlocal last_token_flush
+            if token_buffer:
+                jobs.append_event(job_id, {"type": "token", "text": "".join(token_buffer)})
+                token_buffer.clear()
+                last_token_flush = time.monotonic()
 
         def token_callback(chunk: object) -> None:
             nonlocal streamed_text
             text = _chunk_text(chunk)
             if text:
                 streamed_text = True
-                jobs.append_event(job_id, {"type": "token", "text": text})
+                token_buffer.append(text)
+                if (
+                    len("".join(token_buffer)) >= 160
+                    or time.monotonic() - last_token_flush >= 0.2
+                ):
+                    flush_tokens()
 
         def conversation_callback(event: object) -> None:
             text = _event_text(event)
@@ -154,6 +169,7 @@ def run(job_id: str) -> None:
             workspace=str(workspace),
             callbacks=[conversation_callback],
             token_callbacks=[token_callback],
+            max_iteration_per_run=int(settings.effective("LUX_MAX_ITERATIONS", "80")),
         )
         execution_prompt = (
             job["prompt"]
@@ -182,6 +198,7 @@ def run(job_id: str) -> None:
                     + failure_output
                 )
             conversation.run()
+            flush_tokens()
             verification = _verify_workspace(workspace)
             if verification["status"] in {"passed", "skipped"}:
                 break
