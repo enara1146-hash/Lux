@@ -15,7 +15,7 @@ from pathlib import Path
 from .worker import run as run_job
 
 app = FastAPI(title="Lux", version="0.3.5")
-API_KEY = os.getenv("LUX_API_KEY")
+API_KEY = os.getenv("LUX_API_KEY") or os.getenv("LLM_API_KEY")
 logging.basicConfig(level=os.getenv("LUX_LOG_LEVEL", "INFO"))
 logger = logging.getLogger("lux.api")
 
