@@ -12,7 +12,6 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from . import artifacts, jobs
-from .worker import run as run_job
 
 app = FastAPI(title="Lux", version="0.3.5")
 API_KEY = os.getenv("LUX_API_KEY")
@@ -51,6 +50,8 @@ def health() -> dict[str, str]:
 
 @app.post("/api/jobs", dependencies=[Depends(require_key)])
 def create_job(request: JobRequest) -> dict:
+    from .worker import run as run_job
+
     logger.info("Creating job for project %s", request.project_name)
     job = jobs.create(request.prompt, request.project_name)
     threading.Thread(target=run_job, args=(job["id"],), daemon=True).start()
