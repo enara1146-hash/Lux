@@ -4,11 +4,12 @@ import logging
 import os
 import secrets
 import threading
+import time
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import artifacts, auth, jobs
@@ -143,3 +144,32 @@ def login(request: AuthRequest) -> dict[str, str]:
         return {"token": auth.login(request.email, request.password)}
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+@app.get("/api/jobs/{job_id}/stream", dependencies=[Depends(require_key)])
+def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> StreamingResponse:
+    job = jobs.get(job_id)
+    if not job or (AUTH_ENABLED and job.get("owner_id") != user_id):
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    def events():
+        last = None
+        while True:
+            current = jobs.get(job_id)
+            if not current:
+                yield "event: error\\ndata: Job not found\\n\\n"
+                return
+            snapshot = {
+                "id": current["id"],
+                "status": current["status"],
+                "error": current.get("error"),
+            }
+            if snapshot != last:
+                import json
+                yield "event: job\\ndata: " + json.dumps(snapshot) + "\\n\\n"
+                last = snapshot
+            if current["status"] in {"succeeded", "failed", "cancelled"}:
+                return
+            time.sleep(1)
+
+    return StreamingResponse(events(), media_type="text/event-stream")
