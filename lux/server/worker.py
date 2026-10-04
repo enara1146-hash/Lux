@@ -26,9 +26,9 @@ def run(job_id: str) -> None:
     jobs.update(job_id, status="running", workspace=str(workspace))
     try:
         llm = LLM(
-            model=os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
+            model=os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b:free",
             api_key=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL"),
+            base_url=os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://openrouter.ai/api/v1",
         )
         agent = Agent(llm=llm, tools=[
             Tool(name=TerminalTool.name),
