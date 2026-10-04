@@ -155,28 +155,69 @@ def run(job_id: str) -> None:
             logger.exception("Unable to persist failure for job %s", job_id)
 
 
-def _verify_workspace(workspace: Path) -> dict[str, object]:
-    if not (workspace / "tests").exists() and not list(workspace.glob("test_*.py")):
-        return {"status": "skipped", "reason": "No pytest tests detected"}
+def _run_check(
+    workspace: Path,
+    command: list[str],
+    timeout: int,
+) -> dict[str, object]:
     try:
         result = subprocess.run(
-            ["python", "-m", "pytest", "-q"],
+            command,
             cwd=workspace,
             capture_output=True,
             text=True,
             check=False,
-            timeout=int(os.getenv("LUX_TEST_TIMEOUT", "300")),
+            timeout=timeout,
         )
-        output = (result.stdout + "\n" + result.stderr)[-8000:]
+        output = (result.stdout + "\n" + result.stderr).strip()[-8000:]
         return {
+            "command": " ".join(command),
             "status": "passed" if result.returncode == 0 else "failed",
             "return_code": result.returncode,
             "output": output,
         }
     except subprocess.TimeoutExpired:
         return {
+            "command": " ".join(command),
             "status": "timed_out",
-            "timeout_seconds": int(os.getenv("LUX_TEST_TIMEOUT", "300")),
+            "timeout_seconds": timeout,
         }
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
-        return {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+        return {
+            "command": " ".join(command),
+            "status": "error",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
+def _verify_workspace(workspace: Path) -> dict[str, object]:
+    timeout = int(os.getenv("LUX_TEST_TIMEOUT", "300"))
+    checks: list[dict[str, object]] = []
+    python_files = [
+        path for path in workspace.rglob("*.py")
+        if ".venv" not in path.parts and ".git" not in path.parts
+    ]
+    if python_files:
+        checks.append(_run_check(workspace, ["python", "-m", "compileall", "-q", "."], timeout))
+
+    has_tests = (workspace / "tests").exists() or bool(list(workspace.glob("test_*.py")))
+    if has_tests:
+        checks.append(_run_check(workspace, ["python", "-m", "pytest", "-q"], timeout))
+
+    if not checks:
+        return {
+            "status": "skipped",
+            "reason": "No Python application or pytest tests detected",
+            "checks": [],
+        }
+
+    failed = [check for check in checks if check["status"] != "passed"]
+    output_parts = [
+        f"$ {check['command']}\n{check.get('output', check.get('error', ''))}"
+        for check in checks
+    ]
+    return {
+        "status": "failed" if failed else "passed",
+        "checks": checks,
+        "output": "\n\n".join(output_parts)[-12000:],
+    }
