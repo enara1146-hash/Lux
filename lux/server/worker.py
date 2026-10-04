@@ -162,11 +162,36 @@ def run(job_id: str) -> None:
             "and any failures in your final response. Do not leave a long-running server process "
             "running after the smoke test."
         )
+        jobs.append_event(job_id, {"type": "activity", "text": "Planning implementation"})
         conversation.send_message(execution_prompt)
-        conversation.run()
+        max_repairs = max(0, int(os.getenv("LUX_MAX_REPAIRS", "2")))
+        verification: dict[str, object] = {"status": "skipped"}
+        for attempt in range(max_repairs + 1):
+            if attempt:
+                jobs.append_event(
+                    job_id,
+                    {
+                        "type": "activity",
+                        "text": f"Repair attempt {attempt} of {max_repairs}",
+                    },
+                )
+                failure_output = str(verification.get("output", ""))[-6000:]
+                conversation.send_message(
+                    "The automated checks failed. Diagnose and repair the implementation, "
+                    "then rerun the relevant checks. Failure output:\n\n"
+                    + failure_output
+                )
+            conversation.run()
+            verification = _verify_workspace(workspace)
+            if verification["status"] in {"passed", "skipped"}:
+                break
+            if attempt < max_repairs:
+                jobs.append_event(
+                    job_id,
+                    {"type": "activity", "text": "Checks failed; preparing an automatic repair"},
+                )
         if not streamed_text and agent_messages:
             jobs.append_event(job_id, {"type": "message", "text": agent_messages[-1]})
-        verification = _verify_workspace(workspace)
         jobs.update(job_id, verification=verification)
         latest = jobs.get(job_id)
         if latest and latest["status"] == "cancelled":
