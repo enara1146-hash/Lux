@@ -37,6 +37,18 @@ def create(prompt: str, project_name: str) -> dict[str, Any]:
     return job
 
 
+def update(job_id: str, **changes: Any) -> dict[str, Any] | None:
+    with _lock:
+        data = _read()
+        job = data.get(job_id)
+        if not job:
+            return None
+        job.update(changes)
+        job["updated_at"] = time.time()
+        _write(data)
+        return job
+
+
 def get(job_id: str) -> dict[str, Any] | None:
     with _lock:
         return _read().get(job_id)
