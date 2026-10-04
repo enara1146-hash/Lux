@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 import threading
-import logging
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -11,7 +12,6 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from . import artifacts, jobs
-from pathlib import Path
 from .worker import run as run_job
 
 app = FastAPI(title="Lux", version="0.3.5")
