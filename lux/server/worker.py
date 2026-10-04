@@ -61,6 +61,24 @@ def _event_text(event: object) -> str:
     return _content_text(getattr(message, "content", None))
 
 
+def _event_activity(event: object) -> str | None:
+    event_name = type(event).__name__
+    source = getattr(event, "source", None)
+    if event_name == "ActionEvent":
+        action = getattr(event, "action", None)
+        action_name = type(action).__name__ if action is not None else "tool"
+        return f"Using {action_name}"
+    if event_name == "ObservationEvent":
+        observation = getattr(event, "observation", None)
+        observation_name = type(observation).__name__ if observation is not None else "result"
+        return f"Received {observation_name}"
+    if event_name == "MessageEvent" and source == "agent":
+        return "Agent prepared a response"
+    if "Error" in event_name:
+        return "Agent reported an error"
+    return None
+
+
 def run(job_id: str) -> None:
     try:
         job = jobs.get(job_id)
@@ -127,6 +145,9 @@ def run(job_id: str) -> None:
             text = _event_text(event)
             if text:
                 agent_messages.append(text)
+            activity = _event_activity(event)
+            if activity:
+                jobs.append_event(job_id, {"type": "activity", "text": activity})
 
         conversation = Conversation(
             agent=agent,
