@@ -6,9 +6,10 @@ import threading
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from . import jobs
+from . import artifacts, jobs
 from .worker import run as run_job
 
 app = FastAPI(title="Lux", version="0.3.5")
@@ -66,3 +67,20 @@ def cancel_job(job_id: str) -> dict:
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+
+@app.get("/api/jobs/{job_id}/artifacts", dependencies=[Depends(require_key)])
+def list_artifacts(job_id: str) -> list[dict]:
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return artifacts.list_files(job)
+
+
+@app.get("/api/jobs/{job_id}/artifact", dependencies=[Depends(require_key)])
+def download_artifact(job_id: str, path: str) -> FileResponse:
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    file_path = artifacts.resolve_file(job, path)
+    return FileResponse(file_path, filename=file_path.name)
