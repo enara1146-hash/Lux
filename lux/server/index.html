@@ -9,7 +9,7 @@
 <pre id="status">No job</pre>
 <script>
 let id=null;
-const headers=()=>({'Content-Type':'application/json','X-Lux-Key':document.getElementById('key').value});
+const headers=()=>{const key=document.getElementById('key').value;return {'Content-Type':'application/json','X-Lux-Key':key,'Authorization':'Bearer '+key};};
 async function submitJob(){const r=await fetch('/api/jobs',{method:'POST',headers:headers(),body:JSON.stringify({prompt:document.getElementById('prompt').value,project_name:document.getElementById('project').value})});const x=await r.json();if(!r.ok){document.getElementById('status').textContent='Request failed ('+r.status+'): '+(x.detail||JSON.stringify(x));return;}id=x.id;status.textContent=JSON.stringify(x,null,2);poll();}
 async function poll(){if(!id)return;const r=await fetch('/api/jobs/'+id,{headers:headers()});const x=await r.json();status.textContent=JSON.stringify(x,null,2);if(x.status==='failed'){status.textContent+='\n\nLux error: '+(x.error||'unknown worker error');}if(!/succeeded|failed|cancelled/.test(x.status||''))setTimeout(poll,2000);}
 async function cancelJob(){if(id)await fetch('/api/jobs/'+id+'/cancel',{method:'POST',headers:headers()});}
