@@ -4,6 +4,7 @@ import logging
 import os
 import secrets
 import threading
+from urllib.parse import urlparse
 import time
 from pathlib import Path
 from typing import Annotated
@@ -47,6 +48,7 @@ def require_key(x_lux_key: Annotated[str | None, Header()] = None, authorization
 class JobRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=20_000)
     project_name: str = Field(default="default", pattern=r"^[A-Za-z0-9._-]{1,80}$")
+    repository_url: str | None = Field(default=None, max_length=500)
 
 
 class AuthRequest(BaseModel):
@@ -66,8 +68,14 @@ def health() -> dict[str, str]:
 
 @app.post("/api/jobs", dependencies=[Depends(require_key)])
 def create_job(request: JobRequest, user_id: str | None = Depends(current_user)) -> dict:
+    if request.repository_url:
+        parsed = urlparse(request.repository_url)
+        if parsed.scheme != "https" or parsed.netloc != "github.com":
+            raise HTTPException(status_code=422, detail="repository_url must be an HTTPS GitHub URL")
     logger.info("Creating job for project %s", request.project_name)
     job = jobs.create(request.prompt, request.project_name, user_id)
+    if request.repository_url:
+        job = jobs.update(job["id"], repository_url=request.repository_url) or job
     try:
         from .worker import run as run_job
         threading.Thread(target=run_job, args=(job["id"],), daemon=True).start()
