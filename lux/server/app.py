@@ -20,6 +20,16 @@ logging.basicConfig(level=os.getenv("LUX_LOG_LEVEL", "INFO"))
 logger = logging.getLogger("lux.api")
 
 
+def current_user(authorization: Annotated[str | None, Header()] = None) -> str | None:
+    if not AUTH_ENABLED:
+        return None
+    token = authorization.removeprefix("Bearer ").strip() if authorization else None
+    user_id = auth.user_for_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Login required")
+    return user_id
+
+
 def require_key(x_lux_key: Annotated[str | None, Header()] = None, authorization: Annotated[str | None, Header()] = None) -> None:
     bearer = authorization.removeprefix("Bearer ").strip() if authorization else None
     supplied = x_lux_key or bearer
@@ -54,9 +64,9 @@ def health() -> dict[str, str]:
 
 
 @app.post("/api/jobs", dependencies=[Depends(require_key)])
-def create_job(request: JobRequest) -> dict:
+def create_job(request: JobRequest, user_id: str | None = Depends(current_user)) -> dict:
     logger.info("Creating job for project %s", request.project_name)
-    job = jobs.create(request.prompt, request.project_name)
+    job = jobs.create(request.prompt, request.project_name, user_id)
     try:
         from .worker import run as run_job
         threading.Thread(target=run_job, args=(job["id"],), daemon=True).start()
@@ -67,9 +77,9 @@ def create_job(request: JobRequest) -> dict:
 
 
 @app.get("/api/jobs/{job_id}", dependencies=[Depends(require_key)])
-def get_job(job_id: str) -> dict:
+def get_job(job_id: str, user_id: str | None = Depends(current_user)) -> dict:
     job = jobs.get(job_id)
-    if not job:
+    if not job or (AUTH_ENABLED and job.get("owner_id") != user_id):
         raise HTTPException(status_code=404, detail="Job not found")
     return job
 
