@@ -10,7 +10,7 @@ from openhands.tools.file_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
 from openhands.tools.terminal import TerminalTool
 
-from . import jobs
+from . import jobs, settings
 
 DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
 logger = logging.getLogger("lux.worker")
@@ -35,9 +35,9 @@ def run(job_id: str) -> None:
             return
     try:
         llm = LLM(
-            model=os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b:free",
-            api_key=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://openrouter.ai/api/v1",
+            model=settings.effective("LLM_MODEL", settings.effective("OPENAI_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free")),
+            api_key=settings.effective("LLM_API_KEY", settings.effective("OPENAI_API_KEY")),
+            base_url=settings.effective("LLM_BASE_URL", settings.effective("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")),
         )
         agent = Agent(llm=llm, tools=[
             Tool(name=TerminalTool.name),
