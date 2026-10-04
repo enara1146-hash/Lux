@@ -85,7 +85,10 @@ def get_job(job_id: str, user_id: str | None = Depends(current_user)) -> dict:
 
 
 @app.post("/api/jobs/{job_id}/approval", dependencies=[Depends(require_key)])
-def approve_job(job_id: str, request: ApprovalRequest) -> dict:
+def approve_job(job_id: str, request: ApprovalRequest, user_id: str | None = Depends(current_user)) -> dict:
+    job = jobs.get(job_id)
+    if not job or (AUTH_ENABLED and job.get("owner_id") != user_id):
+        raise HTTPException(status_code=404, detail="Job not found")
     job = jobs.approve(job_id, request.approve)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -93,7 +96,10 @@ def approve_job(job_id: str, request: ApprovalRequest) -> dict:
 
 
 @app.post("/api/jobs/{job_id}/cancel", dependencies=[Depends(require_key)])
-def cancel_job(job_id: str) -> dict:
+def cancel_job(job_id: str, user_id: str | None = Depends(current_user)) -> dict:
+    job = jobs.get(job_id)
+    if not job or (AUTH_ENABLED and job.get("owner_id") != user_id):
+        raise HTTPException(status_code=404, detail="Job not found")
     job = jobs.cancel(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -101,7 +107,7 @@ def cancel_job(job_id: str) -> dict:
 
 
 @app.get("/api/jobs/{job_id}/artifacts", dependencies=[Depends(require_key)])
-def list_artifacts(job_id: str) -> list[dict]:
+def list_artifacts(job_id: str, user_id: str | None = Depends(current_user)) -> list[dict]:
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -109,7 +115,7 @@ def list_artifacts(job_id: str) -> list[dict]:
 
 
 @app.get("/api/jobs/{job_id}/artifact", dependencies=[Depends(require_key)])
-def download_artifact(job_id: str, path: str) -> FileResponse:
+def download_artifact(job_id: str, path: str, user_id: str | None = Depends(current_user)) -> FileResponse:
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
