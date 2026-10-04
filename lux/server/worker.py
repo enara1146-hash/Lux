@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import json
 from pathlib import Path
 
 from openhands.sdk import LLM, Agent, Conversation, Tool
@@ -47,6 +48,8 @@ def run(job_id: str) -> None:
         conversation = Conversation(agent=agent, workspace=str(workspace))
         conversation.send_message(job["prompt"])
         conversation.run()
+        verification = _verify_workspace(workspace)
+        jobs.update(job_id, verification=verification)
         latest = jobs.get(job_id)
         if latest and latest["status"] == "cancelled":
             return
@@ -54,3 +57,23 @@ def run(job_id: str) -> None:
     except Exception as exc:
         logger.exception("Job %s failed", job_id)
         jobs.update(job_id, status="failed", error=f"{type(exc).__name__}: {exc}"[:4000])
+
+
+def _verify_workspace(workspace: Path) -> dict[str, object]:
+    if not (workspace / "tests").exists() and not list(workspace.glob("test_*.py")):
+        return {"status": "skipped", "reason": "No pytest tests detected"}
+    try:
+        result = subprocess.run(
+            ["python", "-m", "pytest", "-q"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=int(os.getenv("LUX_TEST_TIMEOUT", "300")),
+        )
+        output = (result.stdout + "\\n" + result.stderr)[-8000:]
+        return {"status": "passed" if result.returncode == 0 else "failed",
+                "return_code": result.returncode, "output": output}
+    except subprocess.TimeoutExpired:
+        return {"status": "timed_out", "timeout_seconds": int(os.getenv("LUX_TEST_TIMEOUT", "300"))}
+    except Exception as exc:
+        return {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
