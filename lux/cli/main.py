@@ -15,7 +15,7 @@ def doctor() -> None:
             os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
         ),
         "LLM_MODEL or OPENAI_MODEL": bool(
-            os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL")
+            os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b:free"
         ),
     }
     for name, present in checks.items():
