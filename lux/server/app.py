@@ -157,7 +157,7 @@ def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> Stre
         while True:
             current = jobs.get(job_id)
             if not current:
-                yield "event: error\\ndata: Job not found\\n\\n"
+                yield "event: error\ndata: Job not found\n\n"
                 return
             snapshot = {
                 "id": current["id"],
@@ -166,7 +166,7 @@ def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> Stre
             }
             if snapshot != last:
                 import json
-                yield "event: job\\ndata: " + json.dumps(snapshot) + "\\n\\n"
+                yield "event: job\ndata: " + json.dumps(snapshot) + "\n\n"
                 last = snapshot
             if current["status"] in {"succeeded", "failed", "cancelled"}:
                 return
