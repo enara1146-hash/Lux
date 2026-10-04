@@ -197,7 +197,7 @@ def require_admin(x_lux_admin_key: Annotated[str | None, Header()] = None) -> No
 
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin_page(_: None = Depends(require_admin)) -> HTMLResponse:
+def admin_page() -> HTMLResponse:
     return HTMLResponse("""<!doctype html><html><head><title>Lux Admin</title>
     <style>body{font:15px system-ui;max-width:900px;margin:30px auto;background:#202020;color:#eee;padding:20px}
     input,button{padding:9px;margin:5px 0;width:100%;background:#303030;color:#eee;border:1px solid #555;border-radius:6px}
