@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 from pathlib import Path
 
 from openhands.sdk import Agent, Conversation, LLM, Tool
@@ -11,6 +12,7 @@ from openhands.tools.terminal import TerminalTool
 from . import jobs
 
 DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
+logger = logging.getLogger("lux.worker")
 
 
 def run(job_id: str) -> None:
@@ -38,4 +40,5 @@ def run(job_id: str) -> None:
             return
         jobs.update(job_id, status="succeeded")
     except Exception as exc:
-        jobs.update(job_id, status="failed", error=str(exc)[:4000])
+        logger.exception("Job %s failed", job_id)
+        jobs.update(job_id, status="failed", error=f"{type(exc).__name__}: {exc}"[:4000])
