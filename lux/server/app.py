@@ -90,7 +90,7 @@ def create_job(request: JobRequest, user_id: str | None = Depends(current_user))
             target=run_job,
             args=(job["id"],),
             daemon=True,
-            name=f"lux-worker-{job["id"]}",
+            name=f"lux-worker-{job['id']}",
         )
         worker_thread.start()
         logger.info("Started worker thread %s for job %s", worker_thread.name, job["id"])
