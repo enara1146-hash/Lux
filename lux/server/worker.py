@@ -62,17 +62,27 @@ def _event_text(event: object) -> str:
     return _content_text(getattr(message, "content", None))
 
 
+def _short_detail(value: object, limit: int = 160) -> str:
+    text = str(value).replace("\n", " ").strip()
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 def _event_activity(event: object) -> str | None:
     event_name = type(event).__name__
     source = getattr(event, "source", None)
     if event_name == "ActionEvent":
         action = getattr(event, "action", None)
         action_name = type(action).__name__ if action is not None else "tool"
+        if action is not None:
+            for field in ("command", "path", "query", "task"):
+                detail = getattr(action, field, None)
+                if detail:
+                    return f"Using {action_name}: {_short_detail(detail)}"
         return f"Using {action_name}"
     if event_name == "ObservationEvent":
         observation = getattr(event, "observation", None)
         observation_name = type(observation).__name__ if observation is not None else "result"
-        return f"Received {observation_name}"
+        return f"Completed {observation_name}"
     if event_name == "MessageEvent" and source == "agent":
         return "Agent prepared a response"
     if "Error" in event_name:
