@@ -42,6 +42,34 @@ def get(job_id: str) -> dict[str, Any] | None:
         return _read().get(job_id)
 
 
+def approve(job_id: str, approved: bool) -> dict[str, Any] | None:
+    with _lock:
+        data = _read()
+        job = data.get(job_id)
+        if not job:
+            return None
+        if job["status"] != "waiting_for_approval":
+            return job
+        job["status"] = "queued" if approved else "cancelled"
+        job["approval"] = approved
+        job["updated_at"] = time.time()
+        _write(data)
+        return job
+
+
+def request_approval(job_id: str, reason: str) -> dict[str, Any] | None:
+    with _lock:
+        data = _read()
+        job = data.get(job_id)
+        if not job:
+            return None
+        job["status"] = "waiting_for_approval"
+        job["approval_reason"] = reason[:2000]
+        job["updated_at"] = time.time()
+        _write(data)
+        return job
+
+
 def cancel(job_id: str) -> dict[str, Any] | None:
     with _lock:
         data = _read()
