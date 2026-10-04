@@ -2,94 +2,94 @@ from __future__ import annotations
 
 import json
 import os
-import threading
+import sqlite3
 import time
 from pathlib import Path
 from typing import Any
 
 DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
-JOBS_FILE = DATA_DIR / "jobs.json"
-_lock = threading.Lock()
+DB_FILE = DATA_DIR / "lux.db"
 
 
-def _read() -> dict[str, dict[str, Any]]:
-    try:
-        return json.loads(JOBS_FILE.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return {}
-
-
-def _write(data: dict[str, dict[str, Any]]) -> None:
+def _connect() -> sqlite3.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = JOBS_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    tmp.replace(JOBS_FILE)
+    connection = sqlite3.connect(DB_FILE, timeout=30)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS jobs (
+            id TEXT PRIMARY KEY,
+            prompt TEXT NOT NULL,
+            project_name TEXT NOT NULL,
+            status TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL
+        )
+    """)
+    connection.commit()
+    return connection
+
+
+def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    result = dict(row)
+    result.update(json.loads(result.pop("payload")))
+    return result
 
 
 def create(prompt: str, project_name: str) -> dict[str, Any]:
     import secrets
-    job = {"id": secrets.token_urlsafe(16), "prompt": prompt, "project_name": project_name,
-           "status": "queued", "created_at": time.time(), "updated_at": time.time()}
-    with _lock:
-        data = _read()
-        data[job["id"]] = job
-        _write(data)
+    now = time.time()
+    job = {"id": secrets.token_urlsafe(16), "prompt": prompt,
+           "project_name": project_name, "status": "queued",
+           "created_at": now, "updated_at": now}
+    with _connect() as connection:
+        connection.execute(
+            "INSERT INTO jobs VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (job["id"], prompt, project_name, "queued", json.dumps(job), now, now),
+        )
     return job
 
 
+def get(job_id: str) -> dict[str, Any] | None:
+    with _connect() as connection:
+        return _row(connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
+
+
 def update(job_id: str, **changes: Any) -> dict[str, Any] | None:
-    with _lock:
-        data = _read()
-        job = data.get(job_id)
+    with _connect() as connection:
+        row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        job = _row(row)
         if not job:
             return None
         job.update(changes)
         job["updated_at"] = time.time()
-        _write(data)
-        return job
-
-
-def get(job_id: str) -> dict[str, Any] | None:
-    with _lock:
-        return _read().get(job_id)
+        connection.execute(
+            "UPDATE jobs SET status = ?, payload = ?, updated_at = ? WHERE id = ?",
+            (job["status"], json.dumps(job), job["updated_at"], job_id),
+        )
+    return job
 
 
 def approve(job_id: str, approved: bool) -> dict[str, Any] | None:
-    with _lock:
-        data = _read()
-        job = data.get(job_id)
-        if not job:
-            return None
-        if job["status"] != "waiting_for_approval":
-            return job
-        job["status"] = "queued" if approved else "cancelled"
-        job["approval"] = approved
-        job["updated_at"] = time.time()
-        _write(data)
-        return job
+    job = get(job_id)
+    if not job:
+        return None
+    if job["status"] == "waiting_for_approval":
+        return update(job_id, status="queued" if approved else "cancelled", approval=approved)
+    return job
 
 
 def request_approval(job_id: str, reason: str) -> dict[str, Any] | None:
-    with _lock:
-        data = _read()
-        job = data.get(job_id)
-        if not job:
-            return None
-        job["status"] = "waiting_for_approval"
-        job["approval_reason"] = reason[:2000]
-        job["updated_at"] = time.time()
-        _write(data)
-        return job
+    return update(job_id, status="waiting_for_approval", approval_reason=reason[:2000])
 
 
 def cancel(job_id: str) -> dict[str, Any] | None:
-    with _lock:
-        data = _read()
-        job = data.get(job_id)
-        if not job:
-            return None
-        if job["status"] in {"queued", "running", "waiting_for_approval"}:
-            job["status"] = "cancelled"
-            job["updated_at"] = time.time()
-            _write(data)
-        return job
+    job = get(job_id)
+    if not job:
+        return None
+    if job["status"] in {"queued", "running", "waiting_for_approval"}:
+        return update(job_id, status="cancelled")
+    return job
