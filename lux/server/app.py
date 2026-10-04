@@ -57,6 +57,7 @@ class AdminUpdate(BaseModel):
     base_url: str | None = Field(default=None, max_length=500)
     api_key: str | None = Field(default=None, max_length=500)
     auth_enabled: bool | None = None
+    max_repairs: int | None = Field(default=None, ge=0, le=5)
 
 
 class AuthRequest(BaseModel):
@@ -226,11 +227,12 @@ def admin_page() -> HTMLResponse:
     <button onclick="load()">Load configuration and operations</button>
     <input id="model" placeholder="Model"><input id="base" placeholder="OpenAI-compatible base URL">
     <input id="api" type="password" placeholder="Replace provider API key (leave blank to keep current)">
+    <input id="repairs" type="number" min="0" max="5" placeholder="Automatic repair attempts">
     <button onclick="save()">Save configuration</button><pre id="out"></pre>
     <script>
     const h=()=>({'Content-Type':'application/json','X-Lux-Admin-Key':document.getElementById('key').value});
-    async function load(){let r=await fetch('/admin/config',{headers:h()});let x=await r.json();out.textContent=JSON.stringify(x,null,2);if(r.ok){model.value=x.model||'';base.value=x.base_url||''}}
-    async function save(){let r=await fetch('/admin/config',{method:'POST',headers:h(),body:JSON.stringify({model:model.value,base_url:base.value,api_key:api.value||null})});out.textContent=JSON.stringify(await r.json(),null,2)}
+    async function load(){let r=await fetch('/admin/config',{headers:h()});let x=await r.json();out.textContent=JSON.stringify(x,null,2);if(r.ok){model.value=x.model||'';base.value=x.base_url||'';repairs.value=x.max_repairs??2}}
+    async function save(){let r=await fetch('/admin/config',{method:'POST',headers:h(),body:JSON.stringify({model:model.value,base_url:base.value,api_key:api.value||null,max_repairs:Number(repairs.value)})});out.textContent=JSON.stringify(await r.json(),null,2)}
     </script></body></html>""")
 
 
@@ -242,7 +244,8 @@ def admin_config() -> dict:
 @app.post("/admin/config", dependencies=[Depends(require_admin)])
 def update_admin_config(request: AdminUpdate) -> dict:
     values = {"OPENAI_MODEL": request.model, "OPENAI_BASE_URL": request.base_url,
-              "OPENAI_API_KEY": request.api_key}
+              "OPENAI_API_KEY": request.api_key,
+              "LUX_MAX_REPAIRS": str(request.max_repairs) if request.max_repairs is not None else None}
     for name, value in values.items():
         if value:
             settings.set_value(name, value)
