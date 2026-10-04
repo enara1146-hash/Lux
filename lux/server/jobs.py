@@ -93,3 +93,11 @@ def cancel(job_id: str) -> dict[str, Any] | None:
     if job["status"] in {"queued", "running", "waiting_for_approval"}:
         return update(job_id, status="cancelled")
     return job
+
+
+def recent(limit: int = 50) -> list[dict[str, Any]]:
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT * FROM jobs ORDER BY updated_at DESC LIMIT ?", (max(1, min(limit, 200)),)
+        ).fetchall()
+    return [_row(row) for row in rows if _row(row)]
