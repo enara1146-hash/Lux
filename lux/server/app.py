@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
+import json
 import secrets
 import threading
-from urllib.parse import urlparse
 import time
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
@@ -173,23 +174,34 @@ def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> Stre
         while True:
             current = jobs.get(job_id)
             if not current:
-                yield "event: error\\ndata: Job not found\\n\\n"
+                yield "event: error\ndata: " + json.dumps({"error": "Job not found"}) + "\n\n"
                 return
-            snapshot = {"id": current["id"], "status": current["status"], "error": current.get("error")}
+            snapshot = {
+                "id": current["id"],
+                "status": current["status"],
+                "error": current.get("error"),
+                "verification": current.get("verification"),
+            }
             if snapshot != last:
-                import json
-                yield "event: job\\ndata: " + json.dumps(snapshot) + "\\n\\n"
+                yield "event: job\ndata: " + json.dumps(snapshot) + "\n\n"
                 last = snapshot
             for event in current.get("events", [])[event_index:]:
-                import json
-                yield "event: token\\ndata: " + json.dumps(event) + "\\n\\n"
+                kind = event.get("type", "message")
+                yield f"event: {kind}\ndata: {json.dumps(event)}\n\n"
             event_index = len(current.get("events", []))
             if current["status"] in {"succeeded", "failed", "cancelled"}:
                 return
             time.sleep(1)
 
-    return StreamingResponse(events(), media_type="text/event-stream")
-
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 def require_admin(x_lux_admin_key: Annotated[str | None, Header()] = None) -> None:
     if not settings.valid_admin(x_lux_admin_key):
