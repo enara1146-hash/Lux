@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import os
 import secrets
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from . import jobs
+
 app = FastAPI(title="Lux", version="0.3.5")
-DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
 API_KEY = os.getenv("LUX_API_KEY")
 
 
@@ -31,7 +31,21 @@ def health() -> dict[str, str]:
 
 
 @app.post("/api/jobs", dependencies=[Depends(require_key)])
-def create_job(request: JobRequest) -> dict[str, str]:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    job_id = secrets.token_urlsafe(16)
-    return {"id": job_id, "status": "queued", "project_name": request.project_name}
+def create_job(request: JobRequest) -> dict:
+    return jobs.create(request.prompt, request.project_name)
+
+
+@app.get("/api/jobs/{job_id}", dependencies=[Depends(require_key)])
+def get_job(job_id: str) -> dict:
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+@app.post("/api/jobs/{job_id}/cancel", dependencies=[Depends(require_key)])
+def cancel_job(job_id: str) -> dict:
+    job = jobs.cancel(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
