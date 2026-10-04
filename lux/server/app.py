@@ -11,7 +11,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
-from . import artifacts, jobs
+from . import artifacts, auth, jobs
 
 app = FastAPI(title="Lux", version="0.3.5")
 API_KEY = os.getenv("LUX_API_KEY")
@@ -36,6 +36,11 @@ def require_key(x_lux_key: Annotated[str | None, Header()] = None, authorization
 class JobRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=20_000)
     project_name: str = Field(default="default", pattern=r"^[A-Za-z0-9._-]{1,80}$")
+
+
+class AuthRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=12, max_length=200)
 
 
 class ApprovalRequest(BaseModel):
@@ -106,3 +111,19 @@ def download_artifact(job_id: str, path: str) -> FileResponse:
 def browser_ui() -> HTMLResponse:
     page = Path(__file__).with_name("index.html").read_text(encoding="utf-8")
     return HTMLResponse(page)
+
+
+@app.post("/api/auth/register")
+def register(request: AuthRequest) -> dict:
+    try:
+        return auth.register(request.email, request.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/auth/login")
+def login(request: AuthRequest) -> dict[str, str]:
+    try:
+        return {"token": auth.login(request.email, request.password)}
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
