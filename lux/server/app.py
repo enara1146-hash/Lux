@@ -50,12 +50,15 @@ def health() -> dict[str, str]:
 
 @app.post("/api/jobs", dependencies=[Depends(require_key)])
 def create_job(request: JobRequest) -> dict:
-    from .worker import run as run_job
-
     logger.info("Creating job for project %s", request.project_name)
     job = jobs.create(request.prompt, request.project_name)
-    threading.Thread(target=run_job, args=(job["id"],), daemon=True).start()
-    return job
+    try:
+        from .worker import run as run_job
+        threading.Thread(target=run_job, args=(job["id"],), daemon=True).start()
+    except Exception as exc:
+        logger.exception("Unable to start job %s", job["id"])
+        jobs.update(job["id"], status="failed", error=f"{type(exc).__name__}: {exc}"[:4000])
+    return jobs.get(job["id"]) or job
 
 
 @app.get("/api/jobs/{job_id}", dependencies=[Depends(require_key)])
