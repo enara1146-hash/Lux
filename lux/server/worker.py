@@ -16,6 +16,12 @@ DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
 logger = logging.getLogger("lux.worker")
 
 
+def _provider_model(model: str, base_url: str | None) -> str:
+    if base_url and "openrouter.ai" in base_url and not model.startswith("openrouter/"):
+        return "openrouter/" + model
+    return model
+
+
 def run(job_id: str) -> None:
     job = jobs.get(job_id)
     if not job:
@@ -35,7 +41,7 @@ def run(job_id: str) -> None:
             return
     try:
         llm = LLM(
-            model=settings.effective("LLM_MODEL", settings.effective("OPENAI_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free")),
+            model=_provider_model(settings.effective("LLM_MODEL", settings.effective("OPENAI_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free")), settings.effective("LLM_BASE_URL", settings.effective("OPENAI_BASE_URL", "https://openrouter.ai/api/v1"))),
             api_key=settings.effective("LLM_API_KEY", settings.effective("OPENAI_API_KEY")),
             base_url=settings.effective("LLM_BASE_URL", settings.effective("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")),
         )
