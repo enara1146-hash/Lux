@@ -13,7 +13,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import artifacts, auth, jobs
+from . import artifacts, auth, jobs, settings
 
 app = FastAPI(title="Lux", version="0.3.5")
 API_KEY = os.getenv("LUX_API_KEY")
@@ -49,6 +49,13 @@ class JobRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=20_000)
     project_name: str = Field(default="default", pattern=r"^[A-Za-z0-9._-]{1,80}$")
     repository_url: str | None = Field(default=None, max_length=500)
+
+
+class AdminUpdate(BaseModel):
+    model: str | None = Field(default=None, max_length=200)
+    base_url: str | None = Field(default=None, max_length=500)
+    api_key: str | None = Field(default=None, max_length=500)
+    auth_enabled: bool | None = None
 
 
 class AuthRequest(BaseModel):
@@ -181,3 +188,48 @@ def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> Stre
             time.sleep(1)
 
     return StreamingResponse(events(), media_type="text/event-stream")
+
+
+def require_admin(x_lux_admin_key: Annotated[str | None, Header()] = None) -> None:
+    if not settings.valid_admin(x_lux_admin_key):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page(_: None = Depends(require_admin)) -> HTMLResponse:
+    return HTMLResponse("""<!doctype html><html><head><title>Lux Admin</title>
+    <style>body{font:15px system-ui;max-width:900px;margin:30px auto;background:#202020;color:#eee;padding:20px}
+    input,button{padding:9px;margin:5px 0;width:100%;background:#303030;color:#eee;border:1px solid #555;border-radius:6px}
+    pre{background:#151515;padding:15px;white-space:pre-wrap}</style></head><body>
+    <h1>Lux Admin</h1><input id="key" type="password" placeholder="LUX_ADMIN_KEY">
+    <button onclick="load()">Load configuration and operations</button>
+    <input id="model" placeholder="Model"><input id="base" placeholder="OpenAI-compatible base URL">
+    <input id="api" type="password" placeholder="Replace provider API key (leave blank to keep current)">
+    <button onclick="save()">Save configuration</button><pre id="out"></pre>
+    <script>
+    const h=()=>({'Content-Type':'application/json','X-Lux-Admin-Key':document.getElementById('key').value});
+    async function load(){let r=await fetch('/admin/config',{headers:h()});let x=await r.json();out.textContent=JSON.stringify(x,null,2);if(r.ok){model.value=x.model||'';base.value=x.base_url||''}}
+    async function save(){let r=await fetch('/admin/config',{method:'POST',headers:h(),body:JSON.stringify({model:model.value,base_url:base.value,api_key:api.value||null})});out.textContent=JSON.stringify(await r.json(),null,2)}
+    </script></body></html>""")
+
+
+@app.get("/admin/config", dependencies=[Depends(require_admin)])
+def admin_config() -> dict:
+    return settings.public_config()
+
+
+@app.post("/admin/config", dependencies=[Depends(require_admin)])
+def update_admin_config(request: AdminUpdate) -> dict:
+    values = {"OPENAI_MODEL": request.model, "OPENAI_BASE_URL": request.base_url,
+              "OPENAI_API_KEY": request.api_key}
+    for name, value in values.items():
+        if value:
+            settings.set_value(name, value)
+    if request.auth_enabled is not None:
+        settings.set_value("LUX_AUTH_ENABLED", str(request.auth_enabled).lower())
+    return settings.public_config()
+
+
+@app.get("/admin/operations", dependencies=[Depends(require_admin)])
+def admin_operations() -> list[dict]:
+    return jobs.recent()
