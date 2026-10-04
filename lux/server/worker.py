@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
 from pathlib import Path
 
 from openhands.sdk import LLM, Agent, Conversation, Tool
@@ -24,6 +25,14 @@ def run(job_id: str) -> None:
     workspace = (DATA_DIR / "projects" / job["project_name"] / job_id).resolve()
     workspace.mkdir(parents=True, exist_ok=True)
     jobs.update(job_id, status="running", workspace=str(workspace))
+    repository_url = job.get("repository_url")
+    if repository_url:
+        try:
+            subprocess.run(["git", "clone", "--depth", "1", repository_url, str(workspace)], check=True, timeout=180)
+        except Exception as exc:
+            logger.exception("Repository clone failed for job %s", job_id)
+            jobs.update(job_id, status="failed", error=f"Repository clone failed: {exc}"[:4000])
+            return
     try:
         llm = LLM(
             model=os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b:free",
