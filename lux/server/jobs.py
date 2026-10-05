@@ -39,6 +39,29 @@ def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return result
 
 
+def recover_on_startup() -> list[str]:
+    """Mark interrupted jobs and return queued jobs for dispatch."""
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT * FROM jobs WHERE status IN ('queued', 'running')"
+        ).fetchall()
+    queued: list[str] = []
+    for row in rows:
+        job = _row(row)
+        if not job:
+            continue
+        if job["status"] == "running":
+            update(
+                job["id"],
+                status="failed",
+                phase="failed",
+                error="Worker stopped before completion; the service restarted.",
+            )
+        else:
+            queued.append(job["id"])
+    return queued
+
+
 def create(prompt: str, project_name: str, owner_id: str | None = None) -> dict[str, Any]:
     import secrets
     now = time.time()
