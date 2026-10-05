@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import logging
 import os
 import secrets
@@ -171,6 +172,19 @@ def list_artifacts(job_id: str, user_id: str | None = Depends(current_user)) -> 
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return artifacts.list_files(job)
+
+
+@app.get("/api/jobs/{job_id}/preview", dependencies=[Depends(require_key)])
+@app.get("/api/jobs/{job_id}/preview/{path:path}", dependencies=[Depends(require_key)])
+def preview_webapp(job_id: str, path: str = "index.html", user_id: str | None = Depends(current_user)) -> FileResponse:
+    job = jobs.get(job_id)
+    if not job or (AUTH_ENABLED and job.get("owner_id") != user_id):
+        raise HTTPException(status_code=404, detail="Job not found")
+    if "web" not in job.get("export_targets", []):
+        raise HTTPException(status_code=404, detail="Web preview was not requested")
+    file_path = artifacts.resolve_file(job, path)
+    media_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+    return FileResponse(file_path, media_type=media_type)
 
 
 @app.get("/api/jobs/{job_id}/artifact", dependencies=[Depends(require_key)])
