@@ -7,7 +7,7 @@ import secrets
 import threading
 import time
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -77,6 +77,7 @@ class JobRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=20_000)
     project_name: str = Field(default="default", pattern=r"^[A-Za-z0-9._-]{1,80}$")
     repository_url: str | None = Field(default=None, max_length=500)
+    export_targets: list[Literal["web", "exe", "apk"]] = Field(default_factory=list, max_length=3)
 
 
 class AdminUpdate(BaseModel):
@@ -110,7 +111,11 @@ def create_job(request: JobRequest, user_id: str | None = Depends(current_user))
             raise HTTPException(status_code=422, detail="repository_url must be an HTTPS GitHub URL")
     logger.info("Creating job for project %s", request.project_name)
     job = jobs.create(request.prompt, request.project_name, user_id)
-    job = jobs.update(job["id"], plan=supervisor.task_plan(request.prompt)) or job
+    job = jobs.update(
+        job["id"],
+        plan=supervisor.task_plan(request.prompt),
+        export_targets=request.export_targets,
+    ) or job
     if request.repository_url:
         job = jobs.update(job["id"], repository_url=request.repository_url) or job
     try:
