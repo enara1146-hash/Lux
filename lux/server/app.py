@@ -199,6 +199,7 @@ def download_artifact(job_id: str, path: str, user_id: str | None = Depends(curr
 @app.get("/", response_class=HTMLResponse)
 def browser_ui() -> HTMLResponse:
     page = Path(__file__).with_name("index.html").read_text(encoding="utf-8")
+    page = page.replace("__LUX_AUTH_ENABLED__", str(AUTH_ENABLED).lower())
     return HTMLResponse(page)
 
 
