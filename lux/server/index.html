@@ -84,13 +84,30 @@ function renderJob(x){
     }
   }else if(x.status==='succeeded'){
     const v=x.verification;
-    setStatus(v&&v.status!=='skipped'?'Completed · checks '+v.status:'Completed.');
+    const result=v&&v.status==='passed'?'Everything looks good—I finished the task and the checks passed.':v&&v.status==='failed'?'I finished the implementation, but some checks still need attention.':'I finished the task. No automated checks were available.';
+    setStatus(result);
     showVerification(v);
     loadArtifacts(x.id);
+    if(assistantRow && assistantRow.dataset.successShown!==x.id){
+      assistantRow.dataset.successShown=x.id;
+      appendAssistantText('\\n\\n'+result);
+    }
   }else if(x.status==='cancelled'){
-    setStatus('Stopped.');
+    setStatus('I stopped this task. You can start it again whenever you’re ready.');
   }else{
-    const progress=(x.iteration?' · iteration '+x.iteration:'')+(x.elapsed_seconds?' · '+x.elapsed_seconds+'s':'');setStatus((x.phase||x.status||'queued')+(x.attempt?' · attempt '+x.attempt:'')+progress);
+    const progress=(x.iteration?' · iteration '+x.iteration:'')+(x.elapsed_seconds?' · '+x.elapsed_seconds+' seconds':'');
+    const messages={
+      queued:'I’ve received your task and will start shortly.',
+      claimed:'I’m picking up your task now.',
+      running:'I’m working on your task.',
+      planning:'I’m planning the best way to approach this.',
+      implementation:'I’m making the changes now.',
+      verification:'I’m checking the result and running tests.',
+      repairing:'A check found something to improve, so I’m fixing it and trying again.',
+      export:'I’m preparing the requested export.'
+    };
+    const friendly=messages[x.phase]||messages[x.status]||'I’m working on it.';
+    setStatus(friendly+progress);
   }
 }
 
