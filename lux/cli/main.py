@@ -8,6 +8,14 @@ app = typer.Typer(help="Lux coding-agent commands.")
 
 
 @app.command()
+def worker() -> None:
+    """Run the durable SQLite-backed worker loop."""
+    from lux.server.runner import run
+
+    run()
+
+
+@app.command()
 def doctor() -> None:
     """Check the configuration required to run Lux jobs."""
     checks = {
