@@ -6,16 +6,18 @@ Lux is an OpenHands-powered coding agent that accepts software tasks, edits an i
 
 - OpenAI-compatible LLM providers and OpenRouter routing.
 - ChatGPT-style browser interface.
-- SQLite-backed jobs, settings, users, sessions, events, and verification.
+- SQLite-backed jobs, project memory, settings, users, sessions, events, and verification.
 - Optional multi-user authentication.
 - Live SSE status, activity, token, message, and error events.
 - Optional HTTPS GitHub repository cloning per job.
 - OpenHands terminal, file editor, and task tracker tools.
 - Python syntax checks and pytest execution.
-- Bounded automatic repair attempts after failed checks.\n- Persisted Mission Control task graph with acceptance criteria and live progress.
+- Bounded automatic repair attempts after failed checks.
+- Persisted Mission Control task graph with acceptance criteria and live progress.
 - Artifact listing and secure downloads.
 - Admin configuration and operations dashboard.
-- Railway deployment with persistent storage.\n- Optional durable external worker mode for separate Railway worker services.
+- Railway deployment with persistent storage.
+- Optional durable external worker mode for separate Railway worker services.
 
 Lux currently performs bounded application smoke tests through the agent. It does not yet provide a general interactive browser preview for every generated application.
 
@@ -84,7 +86,7 @@ Lux asks the agent to:
 
 After the first run, Lux verifies the workspace. If checks fail, it sends the failure output back to the same conversation and asks for a repair. This repeats up to LUX_MAX_REPAIRS times. A cancellation request also interrupts the active OpenHands conversation, so the worker stops cleanly instead of only changing the database status.
 
-The activity thread shows safe operational progress and task-graph transitions:
+The activity thread shows safe operational progress and task-graph transitions. Each project also retains recent verification context and feeds it into later jobs so repeated work becomes more consistent:
 
 - planning
 - terminal and file-editing actions
@@ -115,7 +117,9 @@ The worker checks LLM_* variables first and then OPENAI_* variables.
 | LUX_ADMIN_KEY | source fallback exists; set explicitly | Admin dashboard key |
 | LUX_MAX_ITERATIONS | 80 | OpenHands iterations per run |
 | LUX_MAX_REPAIRS | 2 | Automatic repair attempts |
-| LUX_TEST_TIMEOUT | 300 | Verification timeout in seconds |\n| LUX_EXTERNAL_WORKER | false | Web service enqueues jobs for a separate `lux worker` service |\n| LUX_WORKER_POLL_SECONDS | 2 | External worker polling interval |
+| LUX_TEST_TIMEOUT | 300 | Verification timeout in seconds |
+| LUX_EXTERNAL_WORKER | false | Web service enqueues jobs for a separate `lux worker` service |
+| LUX_WORKER_POLL_SECONDS | 2 | External worker polling interval |
 | LUX_MAX_ARTIFACT_BYTES | 10485760 | Artifact size limit |
 | PORT | 8080 | Railway web port |
 
@@ -386,6 +390,7 @@ Current tables:
 - settings
 - users
 - sessions
+- project_memory
 
 SQLite uses WAL journaling.
 
