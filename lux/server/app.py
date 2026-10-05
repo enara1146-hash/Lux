@@ -188,6 +188,9 @@ def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> Stre
                 "id": current["id"],
                 "status": current["status"],
                 "error": current.get("error"),
+                "phase": current.get("phase"),
+                "attempt": current.get("attempt", 0),
+                "max_repairs": current.get("max_repairs", 0),
                 "verification": current.get("verification"),
             }
             if snapshot != last:
