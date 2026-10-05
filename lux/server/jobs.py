@@ -76,6 +76,27 @@ def create(prompt: str, project_name: str, owner_id: str | None = None) -> dict[
     return job
 
 
+def claim_next(worker_id: str) -> dict[str, Any] | None:
+    """Atomically claim the oldest queued job for an external worker."""
+    with _connect() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            "SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1"
+        ).fetchone()
+        job = _row(row)
+        if not job:
+            connection.commit()
+            return None
+        job.update({"status": "claimed", "worker_id": worker_id, "claimed_at": time.time()})
+        job["updated_at"] = time.time()
+        connection.execute(
+            "UPDATE jobs SET status = ?, payload = ?, updated_at = ? WHERE id = ? AND status = 'queued'",
+            ("claimed", json.dumps(job), job["updated_at"], job["id"]),
+        )
+        connection.commit()
+    return job
+
+
 def get(job_id: str) -> dict[str, Any] | None:
     with _connect() as connection:
         return _row(connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
