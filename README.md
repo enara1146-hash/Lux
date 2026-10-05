@@ -195,6 +195,8 @@ Every task has an explicit mode:
 
 The browser composer lets you choose the mode before sending a task. REST clients can send `"mode":"conversation"` or `"mode":"code"`; coding mode is the default for compatibility.
 
+Conversation mode uses the selected `project_name` as its memory scope. Lux provides the agent with compact recent job history and stored project memory, then saves the latest conversational response for future context. It stores summaries and responses, not hidden chain-of-thought. Use a different project name when you want a separate memory space.
+
 ## Prompt-writing guide
 
 Good prompts state the outcome and how it will be verified:
