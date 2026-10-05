@@ -15,7 +15,7 @@ Lux is an OpenHands-powered coding agent that accepts software tasks, edits an i
 - Bounded automatic repair attempts after failed checks.
 - Artifact listing and secure downloads.
 - Admin configuration and operations dashboard.
-- Railway deployment with persistent storage.
+- Railway deployment with persistent storage.\n- Optional durable external worker mode for separate Railway worker services.
 
 Lux currently performs bounded application smoke tests through the agent. It does not yet provide a general interactive browser preview for every generated application.
 
@@ -44,7 +44,7 @@ Browser -> POST /api/jobs -> SQLite job
        -> SQLite result -> SSE/polling browser updates
 ~~~
 
-The worker runs in the same web process as a daemon thread. It logs startup and failures and persists worker exceptions. On startup, queued jobs are dispatched again and jobs that were running during a prior service stop are marked failed instead of remaining stuck.
+The default worker runs in the web process as a daemon thread. For durable worker mode, the web service only writes queued jobs to SQLite and a separate `lux worker` process atomically claims and executes them. Both modes log startup and failures. On startup, queued jobs are dispatched again and jobs that were running during a prior service stop are marked failed instead of remaining stuck.
 
 ## Job lifecycle
 
@@ -114,7 +114,7 @@ The worker checks LLM_* variables first and then OPENAI_* variables.
 | LUX_ADMIN_KEY | source fallback exists; set explicitly | Admin dashboard key |
 | LUX_MAX_ITERATIONS | 80 | OpenHands iterations per run |
 | LUX_MAX_REPAIRS | 2 | Automatic repair attempts |
-| LUX_TEST_TIMEOUT | 300 | Verification timeout in seconds |
+| LUX_TEST_TIMEOUT | 300 | Verification timeout in seconds |\n| LUX_EXTERNAL_WORKER | false | Web service enqueues jobs for a separate `lux worker` service |\n| LUX_WORKER_POLL_SECONDS | 2 | External worker polling interval |
 | LUX_MAX_ARTIFACT_BYTES | 10485760 | Artifact size limit |
 | PORT | 8080 | Railway web port |
 
@@ -162,7 +162,7 @@ Deployment:
 7. Verify /health.
 8. Open /admin and load configuration.
 
-The service must be redeployed after GitHub changes. A volume is required to preserve the SQLite database and workspaces across restarts.
+The service must be redeployed after GitHub changes. A volume is required to preserve the SQLite database and workspaces across restarts. For durable worker mode, deploy a second Railway service from the same image with the same `/data` volume and start command `lux worker`; set `LUX_EXTERNAL_WORKER=true` only on the web service. Both services must share the same persistent volume.
 
 Health endpoint:
 
@@ -538,7 +538,7 @@ Current limitations:
 - worker execution is a daemon thread in the web process;
 - queued jobs are recovered on startup and interrupted running jobs are marked failed;
 - cancellation is cooperative and depends on the OpenHands conversation interrupting cleanly;
-- there is no external durable queue;
+- SQLite is the durable queue in external worker mode; a shared Railway Volume is required;
 - there is no per-job container or VM sandbox;
 - a restart can interrupt active jobs;
 - browser login/register UX is minimal;
