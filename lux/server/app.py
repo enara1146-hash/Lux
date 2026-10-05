@@ -248,6 +248,8 @@ def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> Stre
                 "error": current.get("error"),
                 "phase": current.get("phase"),
                 "attempt": current.get("attempt", 0),
+                "iteration": current.get("iteration", 0),
+                "elapsed_seconds": current.get("elapsed_seconds", 0),
                 "max_repairs": current.get("max_repairs", 0),
                 "verification": current.get("verification"),
                 "plan": current.get("plan", []),
