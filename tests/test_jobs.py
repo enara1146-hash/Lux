@@ -19,7 +19,9 @@ def test_recover_on_startup_requeues_queued_and_fails_running(tmp_path, monkeypa
     assert "service restarted" in failed["error"]
 
 
-def test_claim_next_is_atomic_and_marks_worker() -> None:
+def test_claim_next_is_atomic_and_marks_worker(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(jobs, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(jobs, "DB_FILE", tmp_path / "lux.db")
     jobs.create("claim me", "demo")
     first = jobs.claim_next("worker-a")
     assert first is not None
