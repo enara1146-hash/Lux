@@ -5,7 +5,7 @@ Lux is an OpenHands-powered coding agent that accepts software tasks, edits an i
 ## Capabilities
 
 - OpenAI-compatible LLM providers and OpenRouter routing.
-- ChatGPT-style browser interface with dark/light themes.\n- Browser login, registration, and logout when multi-user auth is enabled.
+- ChatGPT-style browser interface with dark/light themes.\n- Backend user authentication APIs remain available when multi-user auth is enabled.
 - SQLite-backed jobs, project memory, settings, users, sessions, events, and verification.
 - Optional multi-user authentication.
 - Live SSE status, activity, token, message, and error events.
