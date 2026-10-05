@@ -28,3 +28,16 @@ def test_claim_next_is_atomic_and_marks_worker(tmp_path, monkeypatch) -> None:
     assert first["status"] == "claimed"
     assert first["worker_id"] == "worker-a"
     assert jobs.claim_next("worker-b") is None
+
+
+def test_project_memory_merges_updates(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(jobs, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(jobs, "DB_FILE", tmp_path / "lux.db")
+
+    assert jobs.get_project_memory("demo") == {}
+    jobs.update_project_memory("demo", conventions=["pytest"], last_status="succeeded")
+    memory = jobs.update_project_memory("demo", last_job_id="job-1")
+
+    assert memory["conventions"] == ["pytest"]
+    assert memory["last_status"] == "succeeded"
+    assert memory["last_job_id"] == "job-1"
