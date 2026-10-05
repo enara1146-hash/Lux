@@ -349,16 +349,15 @@ def _run_http_smoke(workspace: Path, timeout: int) -> dict[str, object] | None:
     process = subprocess.Popen(
         command,
         cwd=workspace,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     deadline = time.monotonic() + timeout
     last_error = "application did not become healthy"
     try:
         while time.monotonic() < deadline:
             if process.poll() is not None:
-                output = (process.stdout.read() if process.stdout else "")[-4000:]
+                output = "Application exited before health check passed"
                 return {
                     "command": start_command,
                     "status": "failed",
