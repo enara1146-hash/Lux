@@ -237,7 +237,9 @@ def run(job_id: str) -> None:
         streamed_text = False
         agent_messages: list[str] = []
         token_buffer: list[str] = []
-        last_token_flush = time.monotonic()\n        iteration_count = 0\n        last_iteration_persist = 0
+        last_token_flush = time.monotonic()
+        iteration_count = 0
+        last_iteration_persist = 0
 
         def flush_tokens() -> None:
             nonlocal last_token_flush
