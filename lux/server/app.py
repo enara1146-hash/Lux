@@ -77,6 +77,7 @@ def recover_jobs() -> None:
 
 class JobRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=20_000)
+    mode: Literal["conversation", "code"] = "code"
     project_name: str = Field(default="default", pattern=r"^[A-Za-z0-9._-]{1,80}$")
     repository_url: str | None = Field(default=None, max_length=500)
     export_targets: list[Literal["web", "exe", "apk"]] = Field(default_factory=list, max_length=3)
@@ -115,8 +116,9 @@ def create_job(request: JobRequest, user_id: str | None = Depends(current_user))
     job = jobs.create(request.prompt, request.project_name, user_id)
     job = jobs.update(
         job["id"],
-        plan=supervisor.task_plan(request.prompt),
-        export_targets=request.export_targets,
+        plan=supervisor.task_plan(request.prompt) if request.mode == "code" else [],
+        mode=request.mode,
+        export_targets=request.export_targets if request.mode == "code" else [],
     ) or job
     if request.repository_url:
         job = jobs.update(job["id"], repository_url=request.repository_url) or job
