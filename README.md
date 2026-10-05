@@ -196,6 +196,7 @@ Every task has an explicit mode:
 The browser composer lets you choose the mode before sending a task. REST clients can send `"mode":"conversation"` or `"mode":"code"`; coding mode is the default for compatibility.
 
 Conversation mode uses the selected `project_name` as its memory scope. Lux provides the agent with compact recent job history and stored project memory, then saves the latest conversational response for future context. It stores summaries and responses, not hidden chain-of-thought. Use a different project name when you want a separate memory space.
+Conversation mode uses a direct OpenAI-compatible chat request, so it skips OpenHands startup, terminal tools, workspace inspection, verification, and repair loops. This makes normal questions substantially faster. Coding mode continues to use the full OpenHands workflow.
 
 ## Prompt-writing guide
 
