@@ -69,6 +69,28 @@ def recover_on_startup() -> list[str]:
     return queued
 
 
+
+def recent_project_jobs(project_name: str, limit: int = 8) -> list[dict[str, Any]]:
+    """Return compact, non-secret history for a project."""
+    items = recent(max(1, min(limit * 3, 50)))
+    result: list[dict[str, Any]] = []
+    for item in items:
+        if item.get("project_name") != project_name:
+            continue
+        result.append(
+            {
+                "prompt": item.get("prompt", "")[:2000],
+                "mode": item.get("mode", "code"),
+                "status": item.get("status"),
+                "phase": item.get("phase"),
+                "error": item.get("error"),
+                "verification": item.get("verification"),
+            }
+        )
+        if len(result) >= limit:
+            break
+    return result
+
 def get_project_memory(project_name: str) -> dict[str, Any]:
     with _connect() as connection:
         row = connection.execute(
