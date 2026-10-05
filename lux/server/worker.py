@@ -282,7 +282,9 @@ def run(job_id: str) -> None:
             supervisor.phase_event("planning", "Planning implementation"),
         )
         memory = jobs.get_project_memory(job["project_name"])
-        memory_context = json.dumps(memory, ensure_ascii=True) if memory else "No prior project memory."
+        history = jobs.recent_project_jobs(job["project_name"], limit=8)
+        context = {"memory": memory, "recent_exchanges": history}
+        memory_context = json.dumps(context, ensure_ascii=True) if context else "No prior project memory."
         mode = job.get("mode", "code")
         if mode == "conversation":
             task_prompt = (
@@ -342,13 +344,15 @@ def run(job_id: str) -> None:
         if latest and latest["status"] == "cancelled":
             return
         _set_task(job_id, "report", "completed")
-        jobs.update_project_memory(
-            job["project_name"],
-            last_job_id=job_id,
-            last_status="succeeded",
-            last_verification=verification,
-            updated_at=time.time(),
-        )
+        memory_changes = {
+            "last_job_id": job_id,
+            "last_status": "succeeded",
+            "last_verification": verification,
+            "updated_at": time.time(),
+        }
+        if job.get("mode") == "conversation" and agent_messages:
+            memory_changes["last_conversation_response"] = agent_messages[-1][-6000:]
+        jobs.update_project_memory(job["project_name"], **memory_changes)
         jobs.update(job_id, status="succeeded")
         logger.info("Worker completed job %s", job_id)
     except Exception as exc:
