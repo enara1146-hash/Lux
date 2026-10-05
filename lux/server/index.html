@@ -68,10 +68,19 @@ function renderJob(x){
   $('modelLabel').textContent='· '+latestStatus+(x.phase?' · '+x.phase:'');
   if(x.status==='failed'){
     const detail=x.error||'Lux could not complete this task.';
-    setStatus('Execution failed: '+detail,true);
+    const lower=detail.toLowerCase();
+    let friendly='I ran into a problem while working on this task.';
+    if(lower.includes('ratelimit')||lower.includes('rate limit')||lower.includes('429')){
+      friendly='Your AI provider has reached its usage limit for this model. You can wait for the quota to reset, add credits with the provider, or switch Lux to another available model in Admin settings. Once that is updated, you can retry the task.';
+    }else if(lower.includes('api key')||lower.includes('authentication')||lower.includes('unauthorized')){
+      friendly='I could not authenticate with the AI provider. Please check the provider API key and base URL in Admin settings, then retry the task.';
+    }else if(lower.includes('timeout')||lower.includes('timed out')){
+      friendly='This task took longer than the configured time limit. Try a smaller task, a faster model, or increase the job timeout in the environment settings.';
+    }
+    setStatus(friendly,true);
     if(assistantRow && assistantRow.dataset.errorShown!==detail){
       assistantRow.dataset.errorShown=detail;
-      appendAssistantText('\n\nError details:\n'+detail,true);
+      appendAssistantText('\\n\\n'+friendly+'\\n\\nTechnical details:\\n'+detail,true);
     }
   }else if(x.status==='succeeded'){
     const v=x.verification;
