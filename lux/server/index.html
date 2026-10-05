@@ -34,7 +34,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}.sidebar{width:260px;b
   </div>
 </main>
 <script>
-const $=id=>document.getElementById(id);let jobId=null,pollTimer=null,assistantRow=null,streamAbort=null,latestStatus=null,verificationShown=false;
+const $=id=>document.getElementById(id);let jobId=null,pollTimer=null,assistantRow=null,streamAbort=null,latestStatus=null,verificationShown=false,planState={};
 const headers=()=>{const key=localStorage.getItem('lux-key')||'';return {'Content-Type':'application/json','X-Lux-Key':key,'Authorization':'Bearer '+key};};
 function add(role,text,meta=''){ $('welcome').style.display='none'; const row=document.createElement('div');row.className='message '+role;row.innerHTML='<div class="avatar">'+(role==='user'?'You':'✦')+'</div><div><div class="bubble"></div><div class="meta"></div></div>';row.querySelector('.bubble').textContent=text;row.querySelector('.meta').textContent=meta;$('messages').appendChild(row);$('thread').scrollTop=$('thread').scrollHeight;return row}
 function setStatus(text,error=false){$('status').textContent=text;$('status').className='status'+(error?' error':'')}
@@ -47,9 +47,19 @@ function showVerification(v){
   if(v.output)summary+='\n\n'+v.output;
   add('assistant',summary,'Execution and test results');
 }
+function renderPlan(plan){
+  if(!Array.isArray(plan))return;
+  for(const task of plan){
+    if(planState[task.id]===task.status)continue;
+    planState[task.id]=task.status;
+    const icon=task.status==='completed'?'✓ ':task.status==='active'?'→ ':'○ ';
+    appendActivity(icon+task.title);
+  }
+}
 function renderJob(x){
   latestStatus=x.status||'ready';
   $('conversation').textContent=x.id?'Task '+x.id.slice(0,8):'No active task';
+  renderPlan(x.plan||[]);
   $('modelLabel').textContent='· '+latestStatus+(x.phase?' · '+x.phase:'');
   if(x.status==='failed'){
     setStatus(x.error||'The task failed.',true);
@@ -132,7 +142,7 @@ async function streamJob(){
 async function poll(){if(!jobId)return;try{const r=await fetch('/api/jobs/'+jobId,{headers:headers()});const x=await r.json();if(!r.ok)throw Error(x.detail||('Polling failed: '+r.status));renderJob(x);if(!['succeeded','failed','cancelled'].includes(x.status))pollTimer=setTimeout(poll,2000);else $('cancel').hidden=true}catch(e){setStatus(e.message,true)}}
 async function cancel(){if(!jobId)return;await fetch('/api/jobs/'+jobId+'/cancel',{method:'POST',headers:headers()});setStatus('Stopping…')}
 async function loadArtifacts(id){const r=await fetch('/api/jobs/'+id+'/artifacts',{headers:headers()});if(!r.ok)return;const xs=await r.json();if(!xs.length)return;const row=add('assistant','Artifacts','');for(const x of xs){const a=document.createElement('a');a.className='artifact';a.href='/api/jobs/'+id+'/artifact?path='+encodeURIComponent(x.path);a.textContent=x.path;a.target='_blank';row.querySelector('.bubble').appendChild(a)}}
-$('send').onclick=submit;$('cancel').onclick=cancel;$('newChat').onclick=()=>{if(pollTimer)clearTimeout(pollTimer);jobId=null;if(streamAbort)streamAbort.abort();$('messages').innerHTML='';verificationShown=false;$('welcome').style.display='block';$('status').textContent='';$('modelLabel').textContent='· ready';$('conversation').textContent='No active task';$('cancel').hidden=true};
+$('send').onclick=submit;$('cancel').onclick=cancel;$('newChat').onclick=()=>{if(pollTimer)clearTimeout(pollTimer);jobId=null;if(streamAbort)streamAbort.abort();$('messages').innerHTML='';verificationShown=false;planState={};$('welcome').style.display='block';$('status').textContent='';$('modelLabel').textContent='· ready';$('conversation').textContent='No active task';$('cancel').hidden=true};
 $('prompt').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}};
 $('prompt').oninput=()=>{$('prompt').style.height='auto';$('prompt').style.height=Math.min($('prompt').scrollHeight,160)+'px'};
 </script>
