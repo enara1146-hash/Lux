@@ -1,4 +1,4 @@
-import lux.server.worker as worker
+from lux.server import worker
 
 
 class _FakeConversation:
