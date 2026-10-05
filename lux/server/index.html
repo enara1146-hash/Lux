@@ -71,7 +71,7 @@ function renderJob(x){
     setStatus('Execution failed: '+detail,true);
     if(assistantRow && assistantRow.dataset.errorShown!==detail){
       assistantRow.dataset.errorShown=detail;
-      appendAssistantText('\\n\\nError details:\\n'+detail,true);
+      appendAssistantText('\n\nError details:\n'+detail,true);
     }
   }else if(x.status==='succeeded'){
     const v=x.verification;
