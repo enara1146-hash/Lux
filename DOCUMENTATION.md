@@ -112,7 +112,7 @@ The worker checks LLM_* variables first and then OPENAI_* variables.
 | OPENAI_BASE_URL | https://openrouter.ai/api/v1 | Default endpoint |
 | LUX_DATA_DIR | /data | Database and project storage |
 | LUX_LOG_LEVEL | INFO | Log level |
-| LUX_AUTH_ENABLED | false | Enables sessions and service-key enforcement |\n| LUX_DEFAULT_ADMIN_EMAIL | admin@admin.com | Bootstrap account email |\n| LUX_DEFAULT_ADMIN_PASSWORD | none | Secret bootstrap account password |
+| LUX_AUTH_ENABLED | false | Enables sessions and service-key enforcement |\n| LUX_DEFAULT_ADMIN_EMAIL | admin@admin.com | Bootstrap account email |\n| LUX_DEFAULT_ADMIN_PASSWORD | none | Secret bootstrap account password |\n| LUX_DEMO_AUTH | false | Unsafe local/demo mode accepting any non-empty credentials |
 | LUX_API_KEY | none | Service key when auth is enabled |
 | LUX_ADMIN_KEY | source fallback exists; set explicitly | Admin dashboard key |
 | LUX_MAX_ITERATIONS | 80 | OpenHands iterations per run |
@@ -353,7 +353,7 @@ Service and admin credentials are separate.
 
 When enabled:
 
-- users register with email and password;\n- the default admin account is created on startup only when `LUX_DEFAULT_ADMIN_PASSWORD` is configured;
+- users register with email and password;\n- the default admin account is created on startup only when `LUX_DEFAULT_ADMIN_PASSWORD` is configured;\n- `LUX_DEMO_AUTH=true` bypasses password verification and must never be used publicly;
 - passwords use salted PBKDF2-HMAC-SHA256;
 - login creates a bearer session;
 - jobs store owner_id;
