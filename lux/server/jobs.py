@@ -43,14 +43,14 @@ def recover_on_startup() -> list[str]:
     """Mark interrupted jobs and return queued jobs for dispatch."""
     with _connect() as connection:
         rows = connection.execute(
-            "SELECT * FROM jobs WHERE status IN ('queued', 'running')"
+            "SELECT * FROM jobs WHERE status IN ('queued', 'claimed', 'running')"
         ).fetchall()
     queued: list[str] = []
     for row in rows:
         job = _row(row)
         if not job:
             continue
-        if job["status"] == "running":
+        if job["status"] in {"claimed", "running"}:
             update(
                 job["id"],
                 status="failed",
