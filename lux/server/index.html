@@ -90,7 +90,7 @@ function renderJob(x){
     loadArtifacts(x.id);
     if(assistantRow && assistantRow.dataset.successShown!==x.id){
       assistantRow.dataset.successShown=x.id;
-      appendAssistantText('\\n\\n'+result);
+      appendAssistantText('\n\n'+result);
     }
   }else if(x.status==='cancelled'){
     setStatus('I stopped this task. You can start it again whenever you’re ready.');
