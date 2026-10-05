@@ -27,6 +27,13 @@ def _connect() -> sqlite3.Connection:
             updated_at REAL NOT NULL
         )
     """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS project_memory (
+            project_name TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            updated_at REAL NOT NULL
+        )
+    """)
     connection.commit()
     return connection
 
@@ -60,6 +67,27 @@ def recover_on_startup() -> list[str]:
         else:
             queued.append(job["id"])
     return queued
+
+
+def get_project_memory(project_name: str) -> dict[str, Any]:
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT payload FROM project_memory WHERE project_name = ?", (project_name,)
+        ).fetchone()
+    return json.loads(row["payload"]) if row else {}
+
+
+def update_project_memory(project_name: str, **changes: Any) -> dict[str, Any]:
+    memory = get_project_memory(project_name)
+    memory.update(changes)
+    now = time.time()
+    with _connect() as connection:
+        connection.execute(
+            "INSERT INTO project_memory(project_name, payload, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(project_name) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at",
+            (project_name, json.dumps(memory), now),
+        )
+    return memory
 
 
 def create(prompt: str, project_name: str, owner_id: str | None = None) -> dict[str, Any]:
