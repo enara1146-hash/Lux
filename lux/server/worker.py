@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -16,6 +17,18 @@ from . import jobs, settings, supervisor
 
 DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
 logger = logging.getLogger("lux.worker")
+_ACTIVE_CONVERSATIONS: dict[str, Conversation] = {}
+_ACTIVE_LOCK = threading.Lock()
+
+
+def cancel(job_id: str) -> bool:
+    with _ACTIVE_LOCK:
+        conversation = _ACTIVE_CONVERSATIONS.get(job_id)
+    interrupt = getattr(conversation, "interrupt", None) if conversation else None
+    if not callable(interrupt):
+        return False
+    interrupt()
+    return True
 
 
 def _provider_model(model: str, base_url: str | None) -> str:
@@ -190,6 +203,8 @@ def run(job_id: str) -> None:
             token_callbacks=[token_callback],
             max_iteration_per_run=config.max_iterations,
         )
+        with _ACTIVE_LOCK:
+            _ACTIVE_CONVERSATIONS[job_id] = conversation
         jobs.append_event(
             job_id,
             supervisor.phase_event("planning", "Planning implementation"),
@@ -236,6 +251,9 @@ def run(job_id: str) -> None:
             jobs.update(job_id, status="failed", phase="failed", error=message)
         except Exception:
             logger.exception("Unable to persist failure for job %s", job_id)
+    finally:
+        with _ACTIVE_LOCK:
+            _ACTIVE_CONVERSATIONS.pop(job_id, None)
 
 
 def _run_check(
