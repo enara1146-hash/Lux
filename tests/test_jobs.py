@@ -41,3 +41,17 @@ def test_project_memory_merges_updates(tmp_path, monkeypatch) -> None:
     assert memory["conventions"] == ["pytest"]
     assert memory["last_status"] == "succeeded"
     assert memory["last_job_id"] == "job-1"
+
+
+def test_recent_project_jobs_returns_compact_history(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(jobs, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(jobs, "DB_FILE", tmp_path / "lux.db")
+    first = jobs.create("Explain the architecture", "demo")
+    jobs.update(first["id"], mode="conversation", status="succeeded", phase="completed")
+    jobs.create("Build the dashboard", "other")
+
+    history = jobs.recent_project_jobs("demo")
+
+    assert len(history) == 1
+    assert history[0]["prompt"] == "Explain the architecture"
+    assert history[0]["mode"] == "conversation"
