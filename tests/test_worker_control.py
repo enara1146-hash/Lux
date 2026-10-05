@@ -32,3 +32,10 @@ def test_acceptance_command_is_reported(monkeypatch, tmp_path) -> None:
 
     assert result["status"] == "passed"
     assert any(check["output"].strip() == "acceptance ok" for check in result["checks"])
+
+
+def test_http_smoke_is_opt_in(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("LUX_START_COMMAND", raising=False)
+    monkeypatch.delenv("LUX_HEALTH_URL", raising=False)
+
+    assert worker._run_http_smoke(tmp_path, timeout=1) is None
