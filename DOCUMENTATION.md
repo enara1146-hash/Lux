@@ -413,10 +413,11 @@ Job verification:
 1. Detect Python files.
 2. Run python -m compileall -q ..
 3. Run python -m pytest -q when tests exist.
-4. Store command results in verification.
+4. Run LUX_ACCEPTANCE_COMMAND when configured.
+5. Store command results in verification.
 5. Show checks and output in the chat.
 
-Verification statuses are passed, failed, timed_out, error, and skipped.
+Verification statuses are passed, failed, timed_out, error, and skipped. Acceptance commands are split without a shell and use the same timeout as other checks.
 
 The agent is also instructed to run relevant application checks and bounded smoke tests.
 
