@@ -61,6 +61,21 @@ def register(email: str, password: str) -> dict[str, str]:
     return {"id": user_id, "email": normalized}
 
 
+def bootstrap_admin() -> None:
+    email = os.getenv("LUX_DEFAULT_ADMIN_EMAIL", "admin@admin.com").strip().lower()
+    password = os.getenv("LUX_DEFAULT_ADMIN_PASSWORD", "").strip()
+    if not password:
+        return
+    with _connect() as db:
+        exists = db.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
+        if not exists:
+            db.execute(
+                "INSERT INTO users VALUES (?, ?, ?, ?)",
+                (str(uuid.uuid4()), email, _hash(password), time.time()),
+            )
+            db.commit()
+
+
 def login(email: str, password: str) -> str:
     with _connect() as db:
         user = db.execute("SELECT * FROM users WHERE email = ?", (email.lower().strip(),)).fetchone()
