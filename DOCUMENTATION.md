@@ -14,7 +14,7 @@ Lux is an OpenHands-powered coding agent that accepts software tasks, edits an i
 - Python syntax checks and pytest execution.
 - Bounded automatic repair attempts after failed checks.
 - Persisted Mission Control task graph with acceptance criteria and live progress.
-- Artifact listing and secure downloads.
+- Artifact listing and secure downloads.\n- Webapp ZIP, Windows EXE, and Android APK export targets.
 - Admin configuration and operations dashboard.
 - Railway deployment with persistent storage.
 - Optional durable external worker mode for separate Railway worker services.
@@ -223,7 +223,7 @@ X-Lux-Key: <service-key>
 }
 ~~~
 
-repository_url is optional and must be an HTTPS GitHub URL.
+repository_url is optional and must be an HTTPS GitHub URL. Add `export_targets` with any of `web`, `exe`, or `apk` to request builds.
 
 ### Read, stream, cancel
 
