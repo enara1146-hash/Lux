@@ -125,9 +125,15 @@ def cancel_job(job_id: str, user_id: str | None = Depends(current_user)) -> dict
     job = jobs.get(job_id)
     if not job or (AUTH_ENABLED and job.get("owner_id") != user_id):
         raise HTTPException(status_code=404, detail="Job not found")
+    try:
+        from .worker import cancel as cancel_worker
+        cancel_worker(job_id)
+    except Exception:
+        logger.exception("Unable to interrupt worker for job %s", job_id)
     job = jobs.cancel(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    job = jobs.update(job_id, phase="cancelled") or job
     return job
 
 
