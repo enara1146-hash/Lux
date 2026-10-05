@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import artifacts, auth, jobs, settings
+from . import artifacts, auth, jobs, settings, supervisor
 
 app = FastAPI(title="Lux", version="0.3.5")
 API_KEY = os.getenv("LUX_API_KEY")
@@ -110,6 +110,7 @@ def create_job(request: JobRequest, user_id: str | None = Depends(current_user))
             raise HTTPException(status_code=422, detail="repository_url must be an HTTPS GitHub URL")
     logger.info("Creating job for project %s", request.project_name)
     job = jobs.create(request.prompt, request.project_name, user_id)
+    job = jobs.update(job["id"], plan=supervisor.task_plan(request.prompt)) or job
     if request.repository_url:
         job = jobs.update(job["id"], repository_url=request.repository_url) or job
     try:
@@ -220,6 +221,7 @@ def stream_job(job_id: str, user_id: str | None = Depends(current_user)) -> Stre
                 "attempt": current.get("attempt", 0),
                 "max_repairs": current.get("max_repairs", 0),
                 "verification": current.get("verification"),
+                "plan": current.get("plan", []),
             }
             if snapshot != last:
                 yield "event: job\ndata: " + json.dumps(snapshot) + "\n\n"
