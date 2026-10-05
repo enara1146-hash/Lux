@@ -62,6 +62,7 @@ def _start_job(job_id: str) -> None:
 
 @app.on_event("startup")
 def recover_jobs() -> None:
+    auth.bootstrap_admin()
     if os.getenv("LUX_EXTERNAL_WORKER", "false").lower() == "true":
         jobs.recover_on_startup()
         return
