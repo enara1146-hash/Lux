@@ -17,3 +17,11 @@ def test_recover_on_startup_requeues_queued_and_fails_running(tmp_path, monkeypa
     assert failed["status"] == "failed"
     assert failed["phase"] == "failed"
     assert "service restarted" in failed["error"]
+
+
+def test_claim_next_is_atomic_and_marks_worker() -> None:
+    first = jobs.claim_next("worker-a")
+    assert first is not None
+    assert first["status"] == "claimed"
+    assert first["worker_id"] == "worker-a"
+    assert jobs.claim_next("worker-b") is None
