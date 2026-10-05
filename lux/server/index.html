@@ -29,7 +29,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}.sidebar{width:260px;b
   <div class="composer-wrap">
     <div class="composer">
       <textarea id="prompt" rows="1" placeholder="Message Lux..." aria-label="Task prompt"></textarea>
-      <input id="repository" placeholder="Optional GitHub repository URL" style="width:100%;margin:8px 0;padding:8px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text)"><div class="composer-row"><span class="hint">Enter to send · Shift+Enter for a new line</span><div class="actions"><button class="secondary" id="cancel" hidden>Stop</button><button class="send" id="send">↑</button></div></div>
+      <input id="repository" placeholder="Optional GitHub repository URL" style="width:100%;margin:8px 0;padding:8px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text)"><select id="exports" multiple title="Optional export targets" style="width:100%;margin:0 0 8px;padding:8px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text)"><option value="web">Export webapp ZIP</option><option value="exe">Export Windows EXE</option><option value="apk">Export Android APK</option></select><div class="composer-row"><span class="hint">Enter to send · Shift+Enter for a new line</span><div class="actions"><button class="secondary" id="cancel" hidden>Stop</button><button class="send" id="send">↑</button></div></div>
     </div>
   </div>
 </main>
@@ -75,7 +75,7 @@ function renderJob(x){
   }
 }
 
-async function submit(){const text=$('prompt').value.trim();if(!text)return;localStorage.setItem('lux-key',localStorage.getItem('lux-key')||'');$('prompt').value='';$('send').disabled=true;add('user',text);setStatus('Starting task…');try{const r=await fetch('/api/jobs',{method:'POST',headers:headers(),body:JSON.stringify({prompt:text,project_name:'default',repository_url:document.getElementById('repository').value.trim()||null})});const x=await r.json();if(!r.ok)throw Error(x.detail||('Request failed: '+r.status));jobId=x.id;assistantRow=add('assistant','I’m working on it…','Job '+x.id.slice(0,8));$('cancel').hidden=false;renderJob(x);streamJob()}catch(e){setStatus(e.message,true)}finally{$('send').disabled=false}}
+async function submit(){const text=$('prompt').value.trim();if(!text)return;localStorage.setItem('lux-key',localStorage.getItem('lux-key')||'');$('prompt').value='';$('send').disabled=true;add('user',text);setStatus('Starting task…');try{const r=await fetch('/api/jobs',{method:'POST',headers:headers(),body:JSON.stringify({prompt:text,project_name:'default',repository_url:document.getElementById('repository').value.trim()||null,export_targets:[...document.getElementById('exports').selectedOptions].map(option=>option.value)})});const x=await r.json();if(!r.ok)throw Error(x.detail||('Request failed: '+r.status));jobId=x.id;assistantRow=add('assistant','I’m working on it…','Job '+x.id.slice(0,8));$('cancel').hidden=false;renderJob(x);streamJob()}catch(e){setStatus(e.message,true)}finally{$('send').disabled=false}}
 function appendActivity(text){
   if(!assistantRow||!text)return;
   const parent=assistantRow.querySelector('.bubble').parentElement;
