@@ -12,6 +12,7 @@ class SupervisorConfig:
     max_iterations: int
     max_repairs: int
     test_timeout: int
+    job_timeout: int
 
 
 def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -24,9 +25,10 @@ def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
 
 def load_config() -> SupervisorConfig:
     return SupervisorConfig(
-        max_iterations=_bounded_int("LUX_MAX_ITERATIONS", 80, 1, 500),
+        max_iterations=_bounded_int("LUX_MAX_ITERATIONS", 30, 1, 500),
         max_repairs=_bounded_int("LUX_MAX_REPAIRS", 2, 0, 5),
         test_timeout=_bounded_int("LUX_TEST_TIMEOUT", 300, 10, 1800),
+        job_timeout=_bounded_int("LUX_JOB_TIMEOUT", 1800, 60, 7200),
     )
 
 
