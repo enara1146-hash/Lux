@@ -283,8 +283,18 @@ def run(job_id: str) -> None:
         )
         memory = jobs.get_project_memory(job["project_name"])
         memory_context = json.dumps(memory, ensure_ascii=True) if memory else "No prior project memory."
+        mode = job.get("mode", "code")
+        if mode == "conversation":
+            task_prompt = (
+                "This is a conversational request. Answer helpfully and directly. "
+                "Do not modify files, run destructive commands, create exports, or claim that "
+                "code was changed. Explain recommendations and examples clearly.\n\n"
+                + job["prompt"]
+            )
+        else:
+            task_prompt = supervisor.execution_prompt(job["prompt"])
         prompt = (
-            supervisor.execution_prompt(job["prompt"])
+            task_prompt
             + "\n\nProject memory from previous runs (treat as context, verify before trusting):\n"
             + memory_context
         )
