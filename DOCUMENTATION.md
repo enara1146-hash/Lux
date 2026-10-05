@@ -162,7 +162,7 @@ Deployment:
 7. Verify /health.
 8. Open /admin and load configuration.
 
-The service must be redeployed after GitHub changes. A volume is required to preserve the SQLite database and workspaces across restarts. For durable worker mode, deploy a second Railway service from the same image with the same `/data` volume and start command `lux worker`; set `LUX_EXTERNAL_WORKER=true` only on the web service. Both services must share the same persistent volume.
+The service must be redeployed after GitHub changes. A volume is required to preserve the SQLite database and workspaces across restarts. For durable worker mode, deploy a second worker process from the same image with start command `lux worker`; set `LUX_EXTERNAL_WORKER=true` only on the web service. Both processes must share the same `/data` filesystem. On platforms where services have isolated volumes, do not enable this mode until you replace SQLite with a shared database or queue adapter.
 
 Health endpoint:
 
