@@ -413,11 +413,11 @@ Job verification:
 1. Detect Python files.
 2. Run python -m compileall -q ..
 3. Run python -m pytest -q when tests exist.
-4. Run LUX_ACCEPTANCE_COMMAND when configured.
-5. Store command results in verification.
+4. Start the application and probe LUX_HEALTH_URL when both are configured.\n5. Run LUX_ACCEPTANCE_COMMAND when configured.
+6. Store command results in verification.
 5. Show checks and output in the chat.
 
-Verification statuses are passed, failed, timed_out, error, and skipped. Acceptance commands are split without a shell and use the same timeout as other checks.
+Verification statuses are passed, failed, timed_out, error, and skipped. Acceptance commands are split without a shell and use the same timeout as other checks. HTTP smoke processes are terminated after the probe.
 
 The agent is also instructed to run relevant application checks and bounded smoke tests.
 
