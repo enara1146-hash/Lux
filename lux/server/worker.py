@@ -11,7 +11,7 @@ from openhands.tools.file_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
 from openhands.tools.terminal import TerminalTool
 
-from . import jobs, settings
+from . import jobs, settings, supervisor
 
 DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
 logger = logging.getLogger("lux.worker")
@@ -101,7 +101,15 @@ def run(job_id: str) -> None:
 
         workspace = (DATA_DIR / "projects" / job["project_name"] / job_id).resolve()
         logger.info("Starting worker for job %s in %s", job_id, workspace)
-        jobs.update(job_id, status="running", workspace=str(workspace))
+        config = supervisor.load_config()
+        jobs.update(
+            job_id,
+            status="running",
+            phase="planning",
+            attempt=0,
+            max_repairs=config.max_repairs,
+            workspace=str(workspace),
+        )
         workspace.mkdir(parents=True, exist_ok=True)
 
         repository_url = job.get("repository_url")
@@ -179,47 +187,41 @@ def run(job_id: str) -> None:
             workspace=str(workspace),
             callbacks=[conversation_callback],
             token_callbacks=[token_callback],
-            max_iteration_per_run=int(settings.effective("LUX_MAX_ITERATIONS", "80")),
+            max_iteration_per_run=config.max_iterations,
         )
-        execution_prompt = (
-            job["prompt"]
-            + "\n\nAfter implementing the task, run the relevant tests. If this creates or changes "
-            "an application, perform a bounded smoke test of it and include the observed output "
-            "and any failures in your final response. Do not leave a long-running server process "
-            "running after the smoke test."
+        jobs.append_event(
+            job_id,
+            supervisor.phase_event("planning", "Planning implementation"),
         )
-        jobs.append_event(job_id, {"type": "activity", "text": "Planning implementation"})
-        conversation.send_message(execution_prompt)
-        max_repairs = max(0, int(os.getenv("LUX_MAX_REPAIRS", "2")))
+        conversation.send_message(supervisor.execution_prompt(job["prompt"]))
         verification: dict[str, object] = {"status": "skipped"}
-        for attempt in range(max_repairs + 1):
+        for attempt in range(config.max_repairs + 1):
             if attempt:
+                jobs.update(job_id, phase="repairing", attempt=attempt)
                 jobs.append_event(
                     job_id,
-                    {
-                        "type": "activity",
-                        "text": f"Repair attempt {attempt} of {max_repairs}",
-                    },
+                    supervisor.phase_event(
+                        "repairing",
+                        f"Repair attempt {attempt} of {config.max_repairs}",
+                    ),
                 )
-                failure_output = str(verification.get("output", ""))[-6000:]
-                conversation.send_message(
-                    "The automated checks failed. Diagnose and repair the implementation, "
-                    "then rerun the relevant checks. Failure output:\n\n"
-                    + failure_output
-                )
+                conversation.send_message(supervisor.repair_prompt(verification))
+            else:
+                jobs.update(job_id, phase="implementation", attempt=attempt)
             conversation.run()
             flush_tokens()
-            verification = _verify_workspace(workspace)
+            jobs.update(job_id, phase="verification", attempt=attempt)
+            verification = _verify_workspace(workspace, config.test_timeout)
             if verification["status"] in {"passed", "skipped"}:
                 break
             if attempt < max_repairs:
                 jobs.append_event(
                     job_id,
-                    {"type": "activity", "text": "Checks failed; preparing an automatic repair"},
+                    supervisor.phase_event("repairing", "Checks failed; preparing an automatic repair"),
                 )
         if not streamed_text and agent_messages:
             jobs.append_event(job_id, {"type": "message", "text": agent_messages[-1]})
-        jobs.update(job_id, verification=verification)
+        jobs.update(job_id, verification=verification, phase="completed")
         latest = jobs.get(job_id)
         if latest and latest["status"] == "cancelled":
             return
@@ -270,8 +272,8 @@ def _run_check(
         }
 
 
-def _verify_workspace(workspace: Path) -> dict[str, object]:
-    timeout = int(os.getenv("LUX_TEST_TIMEOUT", "300"))
+def _verify_workspace(workspace: Path, timeout: int | None = None) -> dict[str, object]:
+    timeout = timeout or int(os.getenv("LUX_TEST_TIMEOUT", "300"))
     checks: list[dict[str, object]] = []
     python_files = [
         path for path in workspace.rglob("*.py")
