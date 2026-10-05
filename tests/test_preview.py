@@ -1,4 +1,5 @@
-from lux.server import app as app_module, artifacts
+from lux.server import app as app_module
+from lux.server import artifacts
 
 
 def test_web_preview_serves_requested_workspace_file(tmp_path, monkeypatch) -> None:
