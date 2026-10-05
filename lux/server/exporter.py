@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import json
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,12 @@ def _run(command: list[str], cwd: Path, timeout: int) -> dict[str, Any]:
         return {"command": " ".join(command), "status": "timed_out"}
 
 
+def _write_log(workspace: Path, target: str, result: dict[str, Any]) -> None:
+    log_dir = workspace / "exports"
+    log_dir.mkdir(exist_ok=True)
+    (log_dir / f"{target}.log").write_text(json.dumps(result, indent=2), encoding="utf-8")
+
+
 def _web_bundle(workspace: Path) -> dict[str, Any]:
     output = workspace / "exports" / "webapp.zip"
     output.parent.mkdir(exist_ok=True)
@@ -25,7 +32,9 @@ def _web_bundle(workspace: Path) -> dict[str, Any]:
             if not path.is_file() or any(part in {".git", ".venv", "exports"} for part in path.parts):
                 continue
             archive.write(path, path.relative_to(workspace).as_posix())
-    return {"target": "web", "status": "passed", "artifact": str(output.relative_to(workspace))}
+    result = {"target": "web", "status": "passed", "artifact": str(output.relative_to(workspace))}
+    _write_log(workspace, "web", result)
+    return result
 
 
 def export_workspace(workspace: Path, targets: list[str], timeout: int) -> dict[str, Any]:
@@ -40,6 +49,7 @@ def export_workspace(workspace: Path, targets: list[str], timeout: int) -> dict[
         else:
             result = _run(["python", "-m", "PyInstaller", "--onefile", "--name", "lux-app", entry], workspace, timeout)
             result.update({"target": "exe", "artifact": "dist/lux-app.exe" if result["status"] == "passed" else None})
+            _write_log(workspace, "exe", result)
             results.append(result)
     if "apk" in normalized:
         gradle = workspace / ("gradlew.bat" if os.name == "nt" else "gradlew")
@@ -50,5 +60,6 @@ def export_workspace(workspace: Path, targets: list[str], timeout: int) -> dict[
             result = _run(command, workspace, timeout)
             apk_files = list(workspace.glob("**/build/outputs/apk/**/*.apk"))
             result.update({"target": "apk", "artifact": str(apk_files[0].relative_to(workspace)) if apk_files else None})
+            _write_log(workspace, "apk", result)
             results.append(result)
     return {"status": "passed" if results and all(item["status"] == "passed" for item in results) else "failed", "targets": results}
