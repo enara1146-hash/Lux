@@ -6,4 +6,4 @@ def test_browser_ui_injects_auth_mode() -> None:
     html = response.body.decode("utf-8")
     assert "__LUX_AUTH_ENABLED__" not in html
     assert "themeToggle" in html
-    assert "authOverlay" in html
+    assert "authOverlay" not in html
