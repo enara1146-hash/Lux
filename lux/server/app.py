@@ -131,6 +131,14 @@ def create_job(request: JobRequest, user_id: str | None = Depends(current_user))
     return jobs.get(job["id"]) or job
 
 
+@app.get("/api/jobs", dependencies=[Depends(require_key)])
+def list_jobs(user_id: str | None = Depends(current_user)) -> list[dict]:
+    items = jobs.recent(100)
+    if AUTH_ENABLED:
+        items = [item for item in items if item.get("owner_id") == user_id]
+    return items
+
+
 @app.get("/api/jobs/{job_id}", dependencies=[Depends(require_key)])
 def get_job(job_id: str, user_id: str | None = Depends(current_user)) -> dict:
     job = jobs.get(job_id)
