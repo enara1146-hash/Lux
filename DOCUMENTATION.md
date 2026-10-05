@@ -81,7 +81,7 @@ Lux asks the agent to:
 5. Report output and failures.
 6. Stop long-running processes after the smoke test.
 
-After the first run, Lux verifies the workspace. If checks fail, it sends the failure output back to the same conversation and asks for a repair. This repeats up to LUX_MAX_REPAIRS times.
+After the first run, Lux verifies the workspace. If checks fail, it sends the failure output back to the same conversation and asks for a repair. This repeats up to LUX_MAX_REPAIRS times. A cancellation request also interrupts the active OpenHands conversation, so the worker stops cleanly instead of only changing the database status.
 
 The activity thread shows safe operational progress:
 
@@ -536,6 +536,7 @@ Before production:
 Current limitations:
 
 - worker execution is a daemon thread in the web process;
+- cancellation is cooperative and depends on the OpenHands conversation interrupting cleanly;
 - there is no external durable queue;
 - there is no per-job container or VM sandbox;
 - a restart can interrupt active jobs;
