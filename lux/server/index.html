@@ -13,7 +13,6 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}.sidebar{width:260px;b
 </style>
 </head>
 <body>
-<div class="auth-overlay" id="authOverlay" hidden><form class="auth-card" id="authForm"><h1>Welcome to Lux</h1><p>Sign in to manage your coding tasks.</p><input id="authEmail" type="email" placeholder="Email" autocomplete="email" required><input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" minlength="12" required><div class="auth-error" id="authError"></div><button type="submit">Sign in</button><button type="button" class="secondary" id="register">Create account</button></form></div>
 <aside class="sidebar">
   <div class="brand">✦ Lux</div>
   <button class="new" id="newChat">＋ New task</button>
@@ -21,7 +20,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}.sidebar{width:260px;b
   <div class="side-bottom">OpenAI-compatible coding agent<br>Powered by OpenHands<br><a href="/admin" style="color:#72d6bd">Admin settings →</a></div>
 </aside>
 <main class="main">
-  <header class="topbar">Lux <span class="model" id="modelLabel">· ready</span><div class="top-actions"><button class="icon-button" id="themeToggle" title="Toggle theme">☀︎</button><button class="icon-button" id="logout" hidden>Log out</button></div></header>
+  <header class="topbar">Lux <span class="model" id="modelLabel">· ready</span><div class="top-actions"><button class="icon-button" id="themeToggle" title="Toggle theme">☀︎</button></div></header>
   <section class="thread" id="thread">
     <div class="welcome" id="welcome"><h1>How can I help you build?</h1><p>Describe a coding task and Lux will work in an isolated project workspace.</p></div>
     <div class="messages" id="messages"></div>
@@ -37,9 +36,6 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}.sidebar{width:260px;b
 <script>
 const $=id=>document.getElementById(id);let jobId=null,pollTimer=null,assistantRow=null,streamAbort=null,latestStatus=null,verificationShown=false,planState={};
 function applyTheme(){document.body.classList.toggle('light',localStorage.getItem('lux-theme')==='light');$('themeToggle').textContent=document.body.classList.contains('light')?'☾':'☀︎'}
-const authEnabled=__LUX_AUTH_ENABLED__;
-function showAuth(){if(!authEnabled){$('authOverlay').hidden=true;$('logout').hidden=true;return}if(localStorage.getItem('lux-token')){ $('authOverlay').hidden=true;$('logout').hidden=false}else{$('authOverlay').hidden=false;$('logout').hidden=true}}
-async function authRequest(path){const error=$('authError');error.textContent='';try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('authEmail').value,password:$('authPassword').value})});const x=await r.json();if(!r.ok)throw Error(x.detail||'Authentication failed');localStorage.setItem('lux-token',x.token);localStorage.setItem('lux-key',x.token);showAuth()}catch(e){error.textContent=e.message}}
 
 const headers=()=>{const key=localStorage.getItem('lux-token')||localStorage.getItem('lux-key')||'';return {'Content-Type':'application/json','X-Lux-Key':key,'Authorization':'Bearer '+key};};
 function add(role,text,meta=''){ $('welcome').style.display='none'; const row=document.createElement('div');row.className='message '+role;row.innerHTML='<div class="avatar">'+(role==='user'?'You':'✦')+'</div><div><div class="bubble"></div><div class="meta"></div></div>';row.querySelector('.bubble').textContent=text;row.querySelector('.meta').textContent=meta;$('messages').appendChild(row);$('thread').scrollTop=$('thread').scrollHeight;return row}
@@ -148,7 +144,7 @@ async function streamJob(){
 async function poll(){if(!jobId)return;try{const r=await fetch('/api/jobs/'+jobId,{headers:headers()});const x=await r.json();if(!r.ok)throw Error(x.detail||('Polling failed: '+r.status));renderJob(x);if(!['succeeded','failed','cancelled'].includes(x.status))pollTimer=setTimeout(poll,2000);else $('cancel').hidden=true}catch(e){setStatus(e.message,true)}}
 async function cancel(){if(!jobId)return;await fetch('/api/jobs/'+jobId+'/cancel',{method:'POST',headers:headers()});setStatus('Stopping…')}
 async function loadArtifacts(id){const r=await fetch('/api/jobs/'+id+'/artifacts',{headers:headers()});if(!r.ok)return;const xs=await r.json();if(!xs.length)return;const row=add('assistant','Artifacts','');if(xs.some(x=>x.path==='exports/webapp.zip')){const preview=document.createElement('a');preview.className='artifact';preview.href='/api/jobs/'+id+'/preview';preview.textContent='Open web preview';preview.target='_blank';row.querySelector('.bubble').appendChild(preview)}for(const x of xs){const a=document.createElement('a');a.className='artifact';a.href='/api/jobs/'+id+'/artifact?path='+encodeURIComponent(x.path);a.textContent=x.path;a.target='_blank';row.querySelector('.bubble').appendChild(a)}}
-$('authForm').onsubmit=e=>{e.preventDefault();authRequest('/api/auth/login')};$('register').onclick=()=>authRequest('/api/auth/register');$('logout').onclick=()=>{localStorage.removeItem('lux-token');localStorage.removeItem('lux-key');showAuth()};$('themeToggle').onclick=()=>{localStorage.setItem('lux-theme',document.body.classList.contains('light')?'dark':'light');applyTheme()};applyTheme();showAuth();$('send').onclick=submit;$('cancel').onclick=cancel;$('newChat').onclick=()=>{if(pollTimer)clearTimeout(pollTimer);jobId=null;if(streamAbort)streamAbort.abort();$('messages').innerHTML='';verificationShown=false;planState={};$('welcome').style.display='block';$('status').textContent='';$('modelLabel').textContent='· ready';$('conversation').textContent='No active task';$('cancel').hidden=true};
+$('themeToggle').onclick=()=>{localStorage.setItem('lux-theme',document.body.classList.contains('light')?'dark':'light');applyTheme()};applyTheme();$('send').onclick=submit;$('cancel').onclick=cancel;$('newChat').onclick=()=>{if(pollTimer)clearTimeout(pollTimer);jobId=null;if(streamAbort)streamAbort.abort();$('messages').innerHTML='';verificationShown=false;planState={};$('welcome').style.display='block';$('status').textContent='';$('modelLabel').textContent='· ready';$('conversation').textContent='No active task';$('cancel').hidden=true};
 $('prompt').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}};
 $('prompt').oninput=()=>{$('prompt').style.height='auto';$('prompt').style.height=Math.min($('prompt').scrollHeight,160)+'px'};
 </script>
