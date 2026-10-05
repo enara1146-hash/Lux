@@ -16,4 +16,4 @@ def test_web_preview_serves_requested_workspace_file(tmp_path, monkeypatch) -> N
     response = app_module.preview_webapp("job-1")
 
     assert response.media_type == "text/html"
-    assert response.path.endswith("index.html")
+    assert response.path.name == "index.html"
