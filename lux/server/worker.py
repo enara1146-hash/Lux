@@ -214,7 +214,7 @@ def run(job_id: str) -> None:
             verification = _verify_workspace(workspace, config.test_timeout)
             if verification["status"] in {"passed", "skipped"}:
                 break
-            if attempt < max_repairs:
+            if attempt < config.max_repairs:
                 jobs.append_event(
                     job_id,
                     supervisor.phase_event("repairing", "Checks failed; preparing an automatic repair"),
@@ -232,7 +232,7 @@ def run(job_id: str) -> None:
         message = f"{type(exc).__name__}: {exc}"[:4000]
         try:
             jobs.append_event(job_id, {"type": "error", "text": message})
-            jobs.update(job_id, status="failed", error=message)
+            jobs.update(job_id, status="failed", phase="failed", error=message)
         except Exception:
             logger.exception("Unable to persist failure for job %s", job_id)
 
