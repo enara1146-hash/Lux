@@ -23,3 +23,12 @@ def test_cancel_interrupts_active_conversation() -> None:
 
 def test_cancel_returns_false_for_unknown_job() -> None:
     assert worker.cancel("missing-job") is False
+
+
+def test_acceptance_command_is_reported(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("LUX_ACCEPTANCE_COMMAND", "python -c \"print('acceptance ok')\"")
+
+    result = worker._verify_workspace(tmp_path, timeout=10)
+
+    assert result["status"] == "passed"
+    assert any(check["output"].strip() == "acceptance ok" for check in result["checks"])
