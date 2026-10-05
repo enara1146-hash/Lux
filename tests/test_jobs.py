@@ -20,6 +20,7 @@ def test_recover_on_startup_requeues_queued_and_fails_running(tmp_path, monkeypa
 
 
 def test_claim_next_is_atomic_and_marks_worker() -> None:
+    jobs.create("claim me", "demo")
     first = jobs.claim_next("worker-a")
     assert first is not None
     assert first["status"] == "claimed"
