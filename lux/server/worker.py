@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shlex
 import subprocess
 import threading
 import time
@@ -344,6 +345,21 @@ def _verify_workspace(workspace: Path, timeout: int | None = None) -> dict[str, 
     has_tests = (workspace / "tests").exists() or bool(list(workspace.glob("test_*.py")))
     if has_tests:
         checks.append(_run_check(workspace, ["python", "-m", "pytest", "-q"], timeout))
+
+    acceptance_command = os.getenv("LUX_ACCEPTANCE_COMMAND", "").strip()
+    if acceptance_command:
+        try:
+            command = shlex.split(acceptance_command)
+            if command:
+                checks.append(_run_check(workspace, command, timeout))
+        except ValueError as exc:
+            checks.append(
+                {
+                    "command": acceptance_command,
+                    "status": "error",
+                    "error": f"Invalid LUX_ACCEPTANCE_COMMAND: {exc}",
+                }
+            )
 
     package_file = workspace / "package.json"
     if package_file.exists():
