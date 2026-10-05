@@ -186,6 +186,15 @@ X-Lux-Key: your-request-key
 
 Full interactive API documentation is available at `/docs`.
 
+## Conversation versus coding mode
+
+Every task has an explicit mode:
+
+- `code`: Lux may inspect the workspace, edit files, run tools, verify the result, repair failures, and create requested exports.
+- `conversation`: Lux answers as a coding advisor. It should explain concepts, suggest designs, review pasted information, and provide examples without modifying the workspace or claiming that code was changed.
+
+The browser composer lets you choose the mode before sending a task. REST clients can send `"mode":"conversation"` or `"mode":"code"`; coding mode is the default for compatibility.
+
 ## Prompt-writing guide
 
 Good prompts state the outcome and how it will be verified:
