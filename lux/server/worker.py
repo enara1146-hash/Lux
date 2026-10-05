@@ -7,6 +7,8 @@ import shlex
 import subprocess
 import threading
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from openhands.sdk import LLM, Agent, Conversation, Tool
@@ -332,6 +334,55 @@ def _run_check(
         }
 
 
+def _run_http_smoke(workspace: Path, timeout: int) -> dict[str, object] | None:
+    start_command = os.getenv("LUX_START_COMMAND", "").strip()
+    health_url = os.getenv("LUX_HEALTH_URL", "").strip()
+    if not start_command or not health_url:
+        return None
+    try:
+        command = shlex.split(start_command)
+        if not command:
+            return {"command": start_command, "status": "error", "error": "Empty start command"}
+    except ValueError as exc:
+        return {"command": start_command, "status": "error", "error": str(exc)}
+
+    process = subprocess.Popen(
+        command,
+        cwd=workspace,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    deadline = time.monotonic() + timeout
+    last_error = "application did not become healthy"
+    try:
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                output = (process.stdout.read() if process.stdout else "")[-4000:]
+                return {
+                    "command": start_command,
+                    "status": "failed",
+                    "return_code": process.returncode,
+                    "output": output,
+                }
+            try:
+                with urllib.request.urlopen(health_url, timeout=2) as response:
+                    body = response.read(200).decode("utf-8", errors="replace")
+                return {"command": f"GET {health_url}", "status": "passed", "output": body}
+            except (OSError, urllib.error.URLError) as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+                time.sleep(0.5)
+        return {"command": f"GET {health_url}", "status": "timed_out", "error": last_error}
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+
+
 def _verify_workspace(workspace: Path, timeout: int | None = None) -> dict[str, object]:
     timeout = timeout or int(os.getenv("LUX_TEST_TIMEOUT", "300"))
     checks: list[dict[str, object]] = []
@@ -345,6 +396,10 @@ def _verify_workspace(workspace: Path, timeout: int | None = None) -> dict[str, 
     has_tests = (workspace / "tests").exists() or bool(list(workspace.glob("test_*.py")))
     if has_tests:
         checks.append(_run_check(workspace, ["python", "-m", "pytest", "-q"], timeout))
+
+    http_smoke = _run_http_smoke(workspace, timeout)
+    if http_smoke:
+        checks.append(http_smoke)
 
     acceptance_command = os.getenv("LUX_ACCEPTANCE_COMMAND", "").strip()
     if acceptance_command:
