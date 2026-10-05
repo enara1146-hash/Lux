@@ -50,7 +50,7 @@ function showVerification(v){
 function renderJob(x){
   latestStatus=x.status||'ready';
   $('conversation').textContent=x.id?'Task '+x.id.slice(0,8):'No active task';
-  $('modelLabel').textContent='· '+latestStatus;
+  $('modelLabel').textContent='· '+latestStatus+(x.phase?' · '+x.phase:'');
   if(x.status==='failed'){
     setStatus(x.error||'The task failed.',true);
   }else if(x.status==='succeeded'){
@@ -61,7 +61,7 @@ function renderJob(x){
   }else if(x.status==='cancelled'){
     setStatus('Stopped.');
   }else{
-    setStatus(x.status||'queued');
+    setStatus((x.phase||x.status||'queued')+(x.attempt?' · attempt '+x.attempt:''));
   }
 }
 
