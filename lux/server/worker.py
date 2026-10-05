@@ -122,6 +122,49 @@ def _event_activity(event: object) -> str | None:
     return None
 
 
+def _run_conversation_with_watchdog(
+    conversation: Conversation,
+    job_id: str,
+    attempt: int,
+    timeout: int,
+) -> None:
+    """Run OpenHands with visible heartbeats and a cooperative hard timeout."""
+    stop = threading.Event()
+    timed_out = threading.Event()
+    started = time.monotonic()
+
+    def watchdog() -> None:
+        while not stop.wait(10):
+            elapsed = int(time.monotonic() - started)
+            jobs.update(job_id, elapsed_seconds=elapsed)
+            jobs.append_event(
+                job_id,
+                supervisor.phase_event(
+                    "implementation",
+                    f"Still working · {elapsed}s elapsed · attempt {attempt + 1}",
+                ),
+            )
+            if elapsed >= timeout:
+                timed_out.set()
+                interrupt = getattr(conversation, "interrupt", None)
+                if callable(interrupt):
+                    try:
+                        interrupt()
+                    except Exception:
+                        logger.exception("Unable to interrupt timed-out job %s", job_id)
+                return
+
+    thread = threading.Thread(target=watchdog, daemon=True, name=f"lux-watchdog-{job_id}")
+    thread.start()
+    try:
+        conversation.run()
+    finally:
+        stop.set()
+        thread.join(timeout=1)
+    if timed_out.is_set():
+        raise TimeoutError(f"Job exceeded the {timeout}-second execution timeout")
+
+
 def run(job_id: str) -> None:
     try:
         job = jobs.get(job_id)
@@ -188,7 +231,7 @@ def run(job_id: str) -> None:
         streamed_text = False
         agent_messages: list[str] = []
         token_buffer: list[str] = []
-        last_token_flush = time.monotonic()
+        last_token_flush = time.monotonic()\n        iteration_count = 0\n        last_iteration_persist = 0
 
         def flush_tokens() -> None:
             nonlocal last_token_flush
@@ -251,8 +294,8 @@ def run(job_id: str) -> None:
                 )
                 conversation.send_message(supervisor.repair_prompt(verification))
             else:
-                jobs.update(job_id, phase="implementation", attempt=attempt)
-            conversation.run()
+                jobs.update(job_id, phase="implementation", attempt=attempt, iteration=iteration_count, elapsed_seconds=0)
+            _run_conversation_with_watchdog(conversation, job_id, attempt, config.job_timeout)
             flush_tokens()
             _set_task(job_id, "implement", "completed")
             _set_task(job_id, "verify", "active")
