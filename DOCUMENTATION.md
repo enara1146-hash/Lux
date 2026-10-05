@@ -12,7 +12,7 @@ Lux is an OpenHands-powered coding agent that accepts software tasks, edits an i
 - Optional HTTPS GitHub repository cloning per job.
 - OpenHands terminal, file editor, and task tracker tools.
 - Python syntax checks and pytest execution.
-- Bounded automatic repair attempts after failed checks.
+- Bounded automatic repair attempts after failed checks.\n- Persisted Mission Control task graph with acceptance criteria and live progress.
 - Artifact listing and secure downloads.
 - Admin configuration and operations dashboard.
 - Railway deployment with persistent storage.\n- Optional durable external worker mode for separate Railway worker services.
@@ -74,7 +74,8 @@ Workspaces are created at:
 
 Lux asks the agent to:
 
-1. Plan the implementation.
+1. Create a persisted task graph with inspection, implementation, verification, and reporting stages.
+2. Plan the implementation.
 2. Modify the workspace.
 3. Run relevant tests.
 4. Perform a bounded smoke test when an application is created or changed.
@@ -83,7 +84,7 @@ Lux asks the agent to:
 
 After the first run, Lux verifies the workspace. If checks fail, it sends the failure output back to the same conversation and asks for a repair. This repeats up to LUX_MAX_REPAIRS times. A cancellation request also interrupts the active OpenHands conversation, so the worker stops cleanly instead of only changing the database status.
 
-The activity thread shows safe operational progress:
+The activity thread shows safe operational progress and task-graph transitions:
 
 - planning
 - terminal and file-editing actions
