@@ -215,6 +215,10 @@ def run(job_id: str) -> None:
             "LLM_MODEL",
             settings.effective("OPENAI_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free"),
         )
+        fast_mode = settings.effective("LUX_FAST_MODE", "false").lower() == "true"
+        fast_model = settings.effective("LUX_FAST_MODEL", "")
+        if fast_mode and fast_model:
+            model = fast_model
         llm = LLM(
             model=_provider_model(model or "", base_url),
             api_key=settings.effective("LLM_API_KEY", settings.effective("OPENAI_API_KEY")),
