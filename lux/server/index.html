@@ -76,7 +76,7 @@ function renderJob(x){
   }else if(x.status==='cancelled'){
     setStatus('Stopped.');
   }else{
-    setStatus((x.phase||x.status||'queued')+(x.attempt?' · attempt '+x.attempt:''));
+    const progress=(x.iteration?' · iteration '+x.iteration:'')+(x.elapsed_seconds?' · '+x.elapsed_seconds+'s':'');setStatus((x.phase||x.status||'queued')+(x.attempt?' · attempt '+x.attempt:'')+progress);
   }
 }
 
