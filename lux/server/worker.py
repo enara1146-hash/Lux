@@ -16,7 +16,7 @@ from openhands.tools.file_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
 from openhands.tools.terminal import TerminalTool
 
-from . import jobs, settings, supervisor
+from . import exporter, jobs, settings, supervisor
 
 DATA_DIR = Path(os.getenv("LUX_DATA_DIR", "/data")).resolve()
 logger = logging.getLogger("lux.worker")
@@ -265,6 +265,13 @@ def run(job_id: str) -> None:
                     job_id,
                     supervisor.phase_event("repairing", "Checks failed; preparing an automatic repair"),
                 )
+        export_targets = job.get("export_targets", [])
+        if export_targets:
+            jobs.append_event(job_id, supervisor.phase_event("export", "Building requested exports"))
+            export_result = exporter.export_workspace(workspace, export_targets, config.test_timeout)
+            verification["exports"] = export_result
+            if export_result["status"] != "passed":
+                verification["status"] = "failed"
         _set_task(job_id, "verify", "completed")
         _set_task(job_id, "report", "active")
         if not streamed_text and agent_messages:
