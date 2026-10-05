@@ -27,6 +27,10 @@ LLM_BASE_URL=https://.../v1     # optional, for OpenAI-compatible providers
 LUX_API_KEY=...                 # strongly recommended for a public Railway service
 LUX_MAX_CONCURRENT_JOBS=1
 LUX_APPROVAL_TIMEOUT=1800
+LUX_MAX_ITERATIONS=30
+LUX_JOB_TIMEOUT=1800
+LUX_FAST_MODE=false
+LUX_FAST_MODEL=...       # optional faster model for routine tasks
 ```
 
 Generate a strong `LUX_API_KEY` and keep it private. The browser UI has a field for the key and sends it as `X-Lux-Key`.
@@ -120,3 +124,12 @@ The Docker image intentionally does not COPY the `tests/` directory. Tests are f
 ### Railway build image
 
 Lux v0.3.3 pins the runtime base to `python:3.12-slim-bookworm` and installs `openjdk-17-jdk-headless`. This avoids Debian Trixie package resolution issues and provides a full JDK for future Android/Gradle builds.
+
+
+### Performance controls
+
+Lux emits a heartbeat every 10 seconds while OpenHands is working. The UI shows the current phase, repair attempt, iteration count, and elapsed seconds, so a long provider response is visible instead of appearing frozen.
+
+- `LUX_MAX_ITERATIONS` limits OpenHands iterations per run (default `30`).
+- `LUX_JOB_TIMEOUT` bounds each implementation/repair conversation in seconds (default `1800`, minimum `60`). Lux requests a cooperative interruption when the limit is reached.
+- The default model remains `nvidia/nemotron-3-ultra-550b-a55b:free`. Set `LUX_FAST_MODE=true` and `LUX_FAST_MODEL` to use a faster OpenAI-compatible model for routine tasks.
