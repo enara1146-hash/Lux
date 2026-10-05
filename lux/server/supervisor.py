@@ -30,13 +30,24 @@ def load_config() -> SupervisorConfig:
     )
 
 
+def task_plan(prompt: str) -> list[dict[str, str]]:
+    """Create a small, persisted execution graph visible to the user."""
+    return [
+        {"id": "inspect", "title": "Inspect the workspace", "status": "pending", "acceptance": "Relevant files and existing tests are identified."},
+        {"id": "implement", "title": "Implement the requested change", "status": "pending", "acceptance": "The requested behavior is implemented in the workspace."},
+        {"id": "verify", "title": "Run acceptance checks", "status": "pending", "acceptance": "Syntax checks, tests, and bounded smoke checks pass."},
+        {"id": "report", "title": "Prepare the result", "status": "pending", "acceptance": "The response summarizes changes, checks, and artifacts."},
+    ]
+
+
 def execution_prompt(prompt: str) -> str:
     return (
         prompt
         + "\n\nWork autonomously through this sequence: inspect the workspace, make a concise "
         "plan, implement the change, run relevant tests, and perform a bounded smoke test when "
-        "an application is created or changed. Report observed output and failures. Do not leave "
-        "a long-running server process running after the smoke test."
+        "an application is created or changed. Treat the requested behavior as the acceptance "
+        "criterion. Report observed output and failures. Do not leave a long-running server "
+        "process running after the smoke test."
     )
 
 
