@@ -227,7 +227,14 @@ def run(job_id: str) -> None:
             job_id,
             supervisor.phase_event("planning", "Planning implementation"),
         )
-        conversation.send_message(supervisor.execution_prompt(job["prompt"]))
+        memory = jobs.get_project_memory(job["project_name"])
+        memory_context = json.dumps(memory, ensure_ascii=True) if memory else "No prior project memory."
+        prompt = (
+            supervisor.execution_prompt(job["prompt"])
+            + "\n\nProject memory from previous runs (treat as context, verify before trusting):\n"
+            + memory_context
+        )
+        conversation.send_message(prompt)
         verification: dict[str, object] = {"status": "skipped"}
         for attempt in range(config.max_repairs + 1):
             if attempt:
@@ -264,6 +271,13 @@ def run(job_id: str) -> None:
         if latest and latest["status"] == "cancelled":
             return
         _set_task(job_id, "report", "completed")
+        jobs.update_project_memory(
+            job["project_name"],
+            last_job_id=job_id,
+            last_status="succeeded",
+            last_verification=verification,
+            updated_at=time.time(),
+        )
         jobs.update(job_id, status="succeeded")
         logger.info("Worker completed job %s", job_id)
     except Exception as exc:
