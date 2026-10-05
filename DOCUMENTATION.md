@@ -44,7 +44,7 @@ Browser -> POST /api/jobs -> SQLite job
        -> SQLite result -> SSE/polling browser updates
 ~~~
 
-The worker runs in the same web process as a daemon thread. It logs startup and failures and persists worker exceptions so a job does not remain silently queued.
+The worker runs in the same web process as a daemon thread. It logs startup and failures and persists worker exceptions. On startup, queued jobs are dispatched again and jobs that were running during a prior service stop are marked failed instead of remaining stuck.
 
 ## Job lifecycle
 
@@ -536,6 +536,7 @@ Before production:
 Current limitations:
 
 - worker execution is a daemon thread in the web process;
+- queued jobs are recovered on startup and interrupted running jobs are marked failed;
 - cancellation is cooperative and depends on the OpenHands conversation interrupting cleanly;
 - there is no external durable queue;
 - there is no per-job container or VM sandbox;
