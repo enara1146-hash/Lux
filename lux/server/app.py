@@ -46,6 +46,30 @@ def require_key(x_lux_key: Annotated[str | None, Header()] = None, authorization
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 
+def _start_job(job_id: str) -> None:
+    from .worker import run as run_job
+
+    worker_thread = threading.Thread(
+        target=run_job,
+        args=(job_id,),
+        daemon=True,
+        name=f"lux-worker-{job_id}",
+    )
+    worker_thread.start()
+    logger.info("Started worker thread %s for job %s", worker_thread.name, job_id)
+
+
+@app.on_event("startup")
+def recover_jobs() -> None:
+    queued_ids = jobs.recover_on_startup()
+    for job_id in queued_ids:
+        try:
+            _start_job(job_id)
+        except Exception:
+            logger.exception("Unable to resume queued job %s after startup", job_id)
+            jobs.update(job_id, status="failed", phase="failed", error="Unable to resume queued job")
+
+
 class JobRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=20_000)
     project_name: str = Field(default="default", pattern=r"^[A-Za-z0-9._-]{1,80}$")
@@ -86,15 +110,7 @@ def create_job(request: JobRequest, user_id: str | None = Depends(current_user))
     if request.repository_url:
         job = jobs.update(job["id"], repository_url=request.repository_url) or job
     try:
-        from .worker import run as run_job
-        worker_thread = threading.Thread(
-            target=run_job,
-            args=(job["id"],),
-            daemon=True,
-            name=f"lux-worker-{job['id']}",
-        )
-        worker_thread.start()
-        logger.info("Started worker thread %s for job %s", worker_thread.name, job["id"])
+        _start_job(job["id"])
     except Exception as exc:
         logger.exception("Unable to start job %s", job["id"])
         jobs.update(job["id"], status="failed", error=f"{type(exc).__name__}: {exc}"[:4000])
