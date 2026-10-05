@@ -61,6 +61,9 @@ def _start_job(job_id: str) -> None:
 
 @app.on_event("startup")
 def recover_jobs() -> None:
+    if os.getenv("LUX_EXTERNAL_WORKER", "false").lower() == "true":
+        jobs.recover_on_startup()
+        return
     queued_ids = jobs.recover_on_startup()
     for job_id in queued_ids:
         try:
@@ -110,7 +113,10 @@ def create_job(request: JobRequest, user_id: str | None = Depends(current_user))
     if request.repository_url:
         job = jobs.update(job["id"], repository_url=request.repository_url) or job
     try:
-        _start_job(job["id"])
+        if os.getenv("LUX_EXTERNAL_WORKER", "false").lower() == "true":
+            logger.info("Queued job %s for external worker", job["id"])
+        else:
+            _start_job(job["id"])
     except Exception as exc:
         logger.exception("Unable to start job %s", job["id"])
         jobs.update(job["id"], status="failed", error=f"{type(exc).__name__}: {exc}"[:4000])
