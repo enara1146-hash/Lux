@@ -246,6 +246,9 @@ def run(job_id: str) -> None:
     except Exception as exc:
         logger.exception("Worker crashed for job %s", job_id)
         message = f"{type(exc).__name__}: {exc}"[:4000]
+        current = jobs.get(job_id)
+        if current and current.get("status") == "cancelled":
+            return
         try:
             jobs.append_event(job_id, {"type": "error", "text": message})
             jobs.update(job_id, status="failed", phase="failed", error=message)
