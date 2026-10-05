@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import subprocess
@@ -285,6 +286,21 @@ def _verify_workspace(workspace: Path, timeout: int | None = None) -> dict[str, 
     has_tests = (workspace / "tests").exists() or bool(list(workspace.glob("test_*.py")))
     if has_tests:
         checks.append(_run_check(workspace, ["python", "-m", "pytest", "-q"], timeout))
+
+    package_file = workspace / "package.json"
+    if package_file.exists():
+        try:
+            package = json.loads(package_file.read_text(encoding="utf-8"))
+            if package.get("scripts", {}).get("test"):
+                checks.append(_run_check(workspace, ["npm", "test"], timeout))
+        except (OSError, json.JSONDecodeError) as exc:
+            checks.append(
+                {
+                    "command": "read package.json",
+                    "status": "error",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
 
     if not checks:
         return {
