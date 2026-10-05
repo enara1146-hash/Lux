@@ -31,6 +31,21 @@ def cancel(job_id: str) -> bool:
     return True
 
 
+def _set_task(job_id: str, task_id: str, status: str) -> None:
+    job = jobs.get(job_id)
+    if not job:
+        return
+    plan = job.get("plan", [])
+    updated = [
+        {**task, "status": status if task.get("id") == task_id else task.get("status", "pending")}
+        for task in plan
+    ]
+    jobs.update(job_id, plan=updated)
+    task = next((item for item in updated if item.get("id") == task_id), None)
+    if task:
+        jobs.append_event(job_id, supervisor.phase_event(task_id, task["title"]))
+
+
 def _provider_model(model: str, base_url: str | None) -> str:
     if base_url and "openrouter.ai" in base_url and not model.startswith("openrouter/"):
         return "openrouter/" + model
@@ -125,6 +140,7 @@ def run(job_id: str) -> None:
             workspace=str(workspace),
         )
         workspace.mkdir(parents=True, exist_ok=True)
+        _set_task(job_id, "inspect", "active")
 
         repository_url = job.get("repository_url")
         if repository_url:
@@ -143,6 +159,8 @@ def run(job_id: str) -> None:
                 )
                 return
 
+        _set_task(job_id, "inspect", "completed")
+        _set_task(job_id, "implement", "active")
         base_url = settings.effective(
             "LLM_BASE_URL",
             settings.effective("OPENAI_BASE_URL", "https://openrouter.ai/api/v1"),
@@ -226,6 +244,8 @@ def run(job_id: str) -> None:
                 jobs.update(job_id, phase="implementation", attempt=attempt)
             conversation.run()
             flush_tokens()
+            _set_task(job_id, "implement", "completed")
+            _set_task(job_id, "verify", "active")
             jobs.update(job_id, phase="verification", attempt=attempt)
             verification = _verify_workspace(workspace, config.test_timeout)
             if verification["status"] in {"passed", "skipped"}:
@@ -235,12 +255,15 @@ def run(job_id: str) -> None:
                     job_id,
                     supervisor.phase_event("repairing", "Checks failed; preparing an automatic repair"),
                 )
+        _set_task(job_id, "verify", "completed")
+        _set_task(job_id, "report", "active")
         if not streamed_text and agent_messages:
             jobs.append_event(job_id, {"type": "message", "text": agent_messages[-1]})
         jobs.update(job_id, verification=verification, phase="completed")
         latest = jobs.get(job_id)
         if latest and latest["status"] == "cancelled":
             return
+        _set_task(job_id, "report", "completed")
         jobs.update(job_id, status="succeeded")
         logger.info("Worker completed job %s", job_id)
     except Exception as exc:
