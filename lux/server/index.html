@@ -67,7 +67,12 @@ function renderJob(x){
   renderPlan(x.plan||[]);
   $('modelLabel').textContent='· '+latestStatus+(x.phase?' · '+x.phase:'');
   if(x.status==='failed'){
-    setStatus('Execution failed: '+(x.error||'Lux could not complete this task.'),true);
+    const detail=x.error||'Lux could not complete this task.';
+    setStatus('Execution failed: '+detail,true);
+    if(assistantRow && assistantRow.dataset.errorShown!==detail){
+      assistantRow.dataset.errorShown=detail;
+      appendAssistantText('\\n\\nError details:\\n'+detail,true);
+    }
   }else if(x.status==='succeeded'){
     const v=x.verification;
     setStatus(v&&v.status!=='skipped'?'Completed · checks '+v.status:'Completed.');
